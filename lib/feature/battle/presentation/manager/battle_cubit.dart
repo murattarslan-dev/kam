@@ -195,13 +195,16 @@ class BattleCubit extends Cubit<BattleState> {
 
   /// Yardımcı kahraman oluşturucu
   HeroCardEntity _createHero(String id, String name, HeroElement element, HeroRole role) {
+    int hp = 100 + Random().nextInt(35);
     return HeroCardEntity(
       id: id,
       name: name,
       description: "Kadim bozkırların savaşçısı.",
       element: element,
       role: role,
-      health: 100,
+      level: Random().nextInt(5),
+      health: hp,
+      healthPower: hp,
       attackPower: 20 + Random().nextInt(15), // 20-35 arası güç
       defensePower: 10,
       imageUrl: "🎴",

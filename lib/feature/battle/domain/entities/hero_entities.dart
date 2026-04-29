@@ -70,7 +70,9 @@ class HeroCardEntity {
   final String description;
   final HeroElement element;
   final HeroRole role;
+  final int level;
   final int health;
+  final int healthPower;
   final int attackPower;
   final int defensePower;
   final String imageUrl;
@@ -81,7 +83,9 @@ class HeroCardEntity {
     required this.description,
     required this.element,
     required this.role,
+    required this.level,
     required this.health,
+    required this.healthPower,
     required this.attackPower,
     required this.defensePower,
     required this.imageUrl,
@@ -101,6 +105,7 @@ class HeroCardEntity {
   /// Creates a copy of the entity with updated fields for state management.
   HeroCardEntity copyWith({
     int? health,
+    int? healthPower,
     int? attackPower,
     int? defensePower,
   }) {
@@ -110,7 +115,9 @@ class HeroCardEntity {
       description: description,
       element: element,
       role: role,
+      level: level,
       health: health ?? this.health,
+      healthPower: healthPower ?? this.healthPower,
       attackPower: attackPower ?? this.attackPower,
       defensePower: defensePower ?? this.defensePower,
       imageUrl: imageUrl,
