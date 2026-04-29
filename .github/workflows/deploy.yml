@@ -1,0 +1,30 @@
+name: Flutter Web Deploy
+
+on:
+  push:
+    branches:
+      - master # Ana branch adın master olduğu için bu tetikleyiciyi kullanıyoruz
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Web
+        # 'kam' senin repo adın olduğu için base-href bu şekilde ayarlandı.
+        # Bu ayar, resimlerin ve scriptlerin doğru yüklenmesi için kritiktir.
+        run: flutter build web --release --base-href "/kam/"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
