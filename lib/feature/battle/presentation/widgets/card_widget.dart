@@ -24,7 +24,7 @@ class KamCardWidget extends StatelessWidget {
     final double translateY = isSelected && card.isAlive ? -15.0 : 0.0;
 
     // Sağlık oranı (0.0 ile 1.0 arasında)
-    final double hpRatio = (card.health / card.healthPower).clamp(0.0, 1.0);
+    final double hpRatio = (card.health / card.currentCp).clamp(0.0, 1.0);
 
     return GestureDetector(
       onTap: card.isAlive ? onTap : null,
@@ -185,9 +185,9 @@ class KamCardWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatItem(Icons.flash_on, card.attackPower.toString(), card.isAlive ? Colors.orange : Colors.grey),
-              _buildStatItem(Icons.security, card.defensePower.toString(), card.isAlive ? Colors.blue : Colors.grey),
-              _buildStatItem(Icons.stars_outlined, card.level.toString(), card.isAlive ? Colors.purpleAccent : Colors.grey),
+              _buildStatItem(Icons.flash_on, card.currentAttackPower.toString(), card.isAlive ? Colors.orange : Colors.grey),
+              _buildStatItem(Icons.security, card.currentDefensePower.toString(), card.isAlive ? Colors.blue : Colors.grey),
+              _buildStatItem(Icons.favorite, card.currentCp.toString(), card.isAlive ? Colors.greenAccent : Colors.grey),
             ],
           ),
           const SizedBox(height: 6),
@@ -195,6 +195,20 @@ class KamCardWidget extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Column(
               children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Lv ${card.level}",
+                      style: TextStyle(color: card.isAlive ? Colors.purpleAccent : Colors.grey, fontSize: 8, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      "XP ${card.xp}",
+                      style: TextStyle(color: card.isAlive ? Colors.white70 : Colors.grey, fontSize: 8, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(2),
                   child: LinearProgressIndicator(

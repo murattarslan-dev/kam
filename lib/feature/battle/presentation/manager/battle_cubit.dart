@@ -10,19 +10,12 @@ class BattleCubit extends Cubit<BattleState> {
   void startBattle() {
     emit(const BattleLoading());
 
-    // Örnek Oyuncu Takımı
-    final playerTeam = [
-      _createHero("p1", "Kam Arat", HeroElement.fire, HeroRole.warrior),
-      _createHero("p2", "Gökçe", HeroElement.water, HeroRole.support),
-      _createHero("p3", "Demirhan", HeroElement.steppe, HeroRole.tank),
-    ];
+    // Kart havuzundan random takımları oluştur
+    final allCards = _getHeroCardPool();
+    allCards.shuffle();
 
-    // Örnek Düşman Takımı
-    final enemyTeam = [
-      _createHero("e1", "Erlik Elçisi", HeroElement.dark, HeroRole.mage),
-      _createHero("e2", "Gölge Alp", HeroElement.wind, HeroRole.warrior),
-      _createHero("e3", "Yeraltı Devi", HeroElement.forest, HeroRole.tank),
-    ];
+    final playerTeam = allCards.skip(0).take(3).toList();
+    final enemyTeam = allCards.skip(3).take(3).toList();
 
     emit(BattleInProgress(
       playerTeam: playerTeam,
@@ -76,9 +69,11 @@ class BattleCubit extends Cubit<BattleState> {
     final attacker = currentState.playerTeam[currentState.selectedHeroIndex!];
     final target = currentState.enemyTeam[currentState.selectedTargetIndex!];
 
-    // Hasar hesaplama (Basit mantık, ileride usecase'e taşınabilir)
-    final damage = attacker.attackPower;
-    final newHealth = (target.health - damage).clamp(0, 100).toDouble();
+    // Hasar hesaplama (XP / seviye etkisini dahil ediyoruz)
+    final rawDamage = (attacker.currentAttackPower * attacker.element.getDamageMultiplier(target.element)).round();
+    final defenseReduction = (target.currentDefensePower).round();
+    final damage = max(1, rawDamage - defenseReduction);
+    final newHealth = (target.health - damage).clamp(0, target.currentCp).toDouble();
 
     // Düşman takımını güncelle
     final updatedEnemyTeam = List<HeroCardEntity>.from(currentState.enemyTeam);
@@ -155,11 +150,13 @@ class BattleCubit extends Cubit<BattleState> {
 
       // Rastgele bir hedef seç
       final target = alivePlayers[Random().nextInt(alivePlayers.length)];
-      final damage = enemy.attackPower;
+      final rawDamage = (enemy.currentAttackPower * enemy.element.getDamageMultiplier(target.element)).round();
+      final defenseReduction = (target.currentDefensePower * 0.2).round();
+      final damage = max(1, rawDamage - defenseReduction);
 
       final updatedPlayerTeam = currentState.playerTeam.map((p) {
         if (p.id == target.id) {
-          return p.copyWith(health: (p.health - damage).clamp(0, 100).toInt());
+          return p.copyWith(health: (p.health - damage).clamp(0, p.currentCp).toInt());
         }
         return p;
       }).toList();
@@ -193,21 +190,94 @@ class BattleCubit extends Cubit<BattleState> {
     }
   }
 
-  /// Yardımcı kahraman oluşturucu
-  HeroCardEntity _createHero(String id, String name, HeroElement element, HeroRole role) {
-    int hp = 100 + Random().nextInt(35);
+  /// 30 karakterlik mock kart havuzu
+  List<HeroCardEntity> _getHeroCardPool() {
+    List<HeroCardEntity> cards = [];
+    int id = 0;
+
+    // Fire (Ateş) - 5 kart
+    cards.addAll([
+      _buildCard(id++, "Ateş Başkanı", HeroElement.fire, HeroRole.warrior, 38, 12, 45),
+      _buildCard(id++, "Ateş Aslanı", HeroElement.fire, HeroRole.warrior, 36, 12, 42),
+      _buildCard(id++, "Ateş Sipahi", HeroElement.fire, HeroRole.tank, 18, 20, 48),
+      _buildCard(id++, "Ateş Koruma", HeroElement.fire, HeroRole.tank, 16, 22, 50),
+      _buildCard(id++, "Ateş Şamani", HeroElement.fire, HeroRole.support, 14, 10, 65),
+    ]);
+
+    // Water (Su) - 5 kart
+    cards.addAll([
+      _buildCard(id++, "Su Cini", HeroElement.water, HeroRole.warrior, 38, 12, 45),
+      _buildCard(id++, "Balık Prens", HeroElement.water, HeroRole.warrior, 36, 12, 42),
+      _buildCard(id++, "Su Sipahi", HeroElement.water, HeroRole.tank, 18, 20, 48),
+      _buildCard(id++, "Su Perisi", HeroElement.water, HeroRole.tank, 16, 22, 50),
+      _buildCard(id++, "Su Şamani", HeroElement.water, HeroRole.support, 14, 10, 65),
+    ]);
+
+    // Wind (Rüzgar) - 5 kart
+    cards.addAll([
+      _buildCard(id++, "Rüzgar Şahı", HeroElement.wind, HeroRole.warrior, 38, 12, 45),
+      _buildCard(id++, "Fırtına Cini", HeroElement.wind, HeroRole.warrior, 36, 12, 42),
+      _buildCard(id++, "Hava Sipahi", HeroElement.wind, HeroRole.tank, 18, 20, 48),
+      _buildCard(id++, "Hava Koruma", HeroElement.wind, HeroRole.tank, 16, 22, 50),
+      _buildCard(id++, "Hava Şamani", HeroElement.wind, HeroRole.support, 14, 10, 65),
+    ]);
+
+    // Forest (Orman) - 5 kart
+    cards.addAll([
+      _buildCard(id++, "Orman Cini", HeroElement.forest, HeroRole.warrior, 38, 12, 45),
+      _buildCard(id++, "Ağaç Satırı", HeroElement.forest, HeroRole.warrior, 36, 12, 42),
+      _buildCard(id++, "Orman Sipahi", HeroElement.forest, HeroRole.tank, 18, 20, 48),
+      _buildCard(id++, "Ağaç Perisi", HeroElement.forest, HeroRole.tank, 16, 22, 50),
+      _buildCard(id++, "Orman Şamani", HeroElement.forest, HeroRole.support, 14, 10, 65),
+    ]);
+
+    // Dark (Karanlık) - 5 kart
+    cards.addAll([
+      _buildCard(id++, "Karanlık Savaşçı", HeroElement.dark, HeroRole.warrior, 38, 12, 45),
+      _buildCard(id++, "Gölge Alp", HeroElement.dark, HeroRole.warrior, 36, 12, 42),
+      _buildCard(id++, "Gölge Sipahi", HeroElement.dark, HeroRole.tank, 18, 20, 48),
+      _buildCard(id++, "Karanlık Koruma", HeroElement.dark, HeroRole.tank, 16, 22, 50),
+      _buildCard(id++, "Karanlık Şamani", HeroElement.dark, HeroRole.support, 14, 10, 65),
+    ]);
+
+    // Steppe (Bozkır) - 5 kart
+    cards.addAll([
+      _buildCard(id++, "Bozkır Savaşçı", HeroElement.steppe, HeroRole.warrior, 38, 12, 45),
+      _buildCard(id++, "Steppe Cini", HeroElement.steppe, HeroRole.warrior, 36, 12, 42),
+      _buildCard(id++, "Bozkır Sipahi", HeroElement.steppe, HeroRole.tank, 18, 20, 48),
+      _buildCard(id++, "Steppe Koruma", HeroElement.steppe, HeroRole.tank, 16, 22, 50),
+      _buildCard(id++, "Bozkır Şamani", HeroElement.steppe, HeroRole.support, 14, 10, 65),
+    ]);
+
+    return cards;
+  }
+
+  /// Kart inşa yardımcısı
+  HeroCardEntity _buildCard(
+    int id,
+    String name,
+    HeroElement element,
+    HeroRole role,
+    int attackPower,
+    int defensePower,
+    int baseCp,
+  ) {
+    final xp = Random().nextInt(5000);
+    final level = 1 + (xp ~/ 1000);
+    final levelMultiplier = 1 + level * 0.1;
+    final startingHealth = (baseCp * 10 * levelMultiplier).round();
+
     return HeroCardEntity(
-      id: id,
+      id: "card_$id",
       name: name,
-      description: "Kadim bozkırların savaşçısı.",
+      description: "Türk mitolojisinin efsanevi kahramanı.",
       element: element,
       role: role,
-      level: Random().nextInt(5),
-      health: hp,
-      healthPower: hp,
-      attackPower: 20 + Random().nextInt(15), // 20-35 arası güç
-      defensePower: 10,
+      xp: xp,
+      cp: baseCp * 10,
+      health: startingHealth,
+      attackPower: attackPower,
+      defensePower: defensePower,
       imageUrl: "🎴",
     );
-  }
-}
+  }}

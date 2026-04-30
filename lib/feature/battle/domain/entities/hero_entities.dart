@@ -70,9 +70,9 @@ class HeroCardEntity {
   final String description;
   final HeroElement element;
   final HeroRole role;
-  final int level;
+  final int xp;
+  final int cp;
   final int health;
-  final int healthPower;
   final int attackPower;
   final int defensePower;
   final String imageUrl;
@@ -83,9 +83,9 @@ class HeroCardEntity {
     required this.description,
     required this.element,
     required this.role,
-    required this.level,
+    required this.xp,
+    required this.cp,
     required this.health,
-    required this.healthPower,
     required this.attackPower,
     required this.defensePower,
     required this.imageUrl,
@@ -94,18 +94,42 @@ class HeroCardEntity {
   /// Returns true if the hero is still able to fight.
   bool get isAlive => health > 0;
 
+  /// Current hero level derived from experience.
+  int get level => 1 + (xp ~/ 1000);
+
+  /// The multiplier applied on base stats for the current level.
+  double get levelMultiplier => 1 + level * 0.1;
+
+  /// Current attack value used in battle and UI display.
+  int get currentAttackPower => (attackPower * levelMultiplier).round();
+
+  /// Current defense value used in battle and UI display.
+  int get currentDefensePower => (defensePower * levelMultiplier).round();
+
+  /// Current maximum health pool derived from CP and level.
+  int get currentCp => (cp * levelMultiplier).round();
+
+  /// Current health remaining during battle.
+  int get currentHealth => health;
+
+  /// Remaining XP until the next level.
+  int get xpToNextLevel => level * 1000 - xp;
+
+  /// Progress to next level as a fraction.
+  double get xpProgress => (xp % 1000) / 1000;
+
   /// Calculates the potential damage output against a target,
-  /// considering only the elemental multiplier and base attack.
-  /// Defense and Buffs should be handled in a UseCase or Service.
+  /// considering elemental matchup and the current attack value.
   int calculatePotentialDamage(HeroCardEntity opponent) {
     final multiplier = element.getDamageMultiplier(opponent.element);
-    return (attackPower * multiplier).round();
+    return (currentAttackPower * multiplier).round();
   }
 
   /// Creates a copy of the entity with updated fields for state management.
   HeroCardEntity copyWith({
+    int? xp,
+    int? cp,
     int? health,
-    int? healthPower,
     int? attackPower,
     int? defensePower,
   }) {
@@ -115,9 +139,9 @@ class HeroCardEntity {
       description: description,
       element: element,
       role: role,
-      level: level,
+      xp: xp ?? this.xp,
+      cp: cp ?? this.cp,
       health: health ?? this.health,
-      healthPower: healthPower ?? this.healthPower,
       attackPower: attackPower ?? this.attackPower,
       defensePower: defensePower ?? this.defensePower,
       imageUrl: imageUrl,
