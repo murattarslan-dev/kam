@@ -67,6 +67,7 @@ final class BattleInProgress extends BattleState {
     Map<String, int>? turnsSinceEffect,
     List<String>? usedSkillIds,
     bool clearSelection = false,
+    bool clearTarget = false,
   }) {
     return BattleInProgress(
       playerTeam: playerTeam ?? this.playerTeam,
@@ -75,7 +76,7 @@ final class BattleInProgress extends BattleState {
       isPlayerTurn: isPlayerTurn ?? this.isPlayerTurn,
       actedHeroIds: actedHeroIds ?? this.actedHeroIds,
       selectedHeroIndex: clearSelection ? null : (selectedHeroIndex ?? this.selectedHeroIndex),
-      selectedTargetIndex: clearSelection ? null : (selectedTargetIndex ?? this.selectedTargetIndex),
+      selectedTargetIndex: (clearSelection || clearTarget) ? null : (selectedTargetIndex ?? this.selectedTargetIndex),
       battleLogs: battleLogs ?? this.battleLogs,
       totalDamageDealt: totalDamageDealt ?? this.totalDamageDealt,
       turnsSinceEffect: turnsSinceEffect ?? this.turnsSinceEffect,

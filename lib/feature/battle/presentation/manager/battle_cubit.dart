@@ -33,10 +33,16 @@ class BattleCubit extends Cubit<BattleState> {
     if (!currentState.isPlayerTurn) return;
 
     if (isEnemy) {
+      // Oyuncu kartı seçilmeden düşman seçilemez
+      if (currentState.selectedHeroIndex == null) return;
+      
       // Düşman kartına tıklandı: Hedef seçimi
       if (currentState.enemyTeam[index].isAlive) {
-        emit(currentState.copyWith(selectedTargetIndex: index));
-        _tryPerformAttack();
+        if (currentState.selectedTargetIndex == index) {
+          emit(currentState.copyWith(clearTarget: true));
+        } else {
+          emit(currentState.copyWith(selectedTargetIndex: index));
+        }
       }
     } else {
       // Oyuncu kartına tıklandı: Saldırgan seçimi
@@ -47,19 +53,12 @@ class BattleCubit extends Cubit<BattleState> {
           emit(currentState.copyWith(clearSelection: true));
         } else {
           emit(currentState.copyWith(selectedHeroIndex: index));
-          _tryPerformAttack();
         }
       }
     }
   }
 
-  /// Eğer hem saldırgan hem hedef seçiliyse saldırıyı gerçekleştir
-  void _tryPerformAttack() {
-    final currentState = state as BattleInProgress;
-    if (currentState.selectedHeroIndex != null && currentState.selectedTargetIndex != null) {
-      executePlayerAttack();
-    }
-  }
+
 
   /// Oyuncu saldırısını gerçekleştirir
   void executePlayerAttack() {
@@ -113,7 +112,7 @@ class BattleCubit extends Cubit<BattleState> {
   }
 
   /// Seçilen kahraman için Töz kartı kullan
-  void useToz(int heroIndex, TozEntity toz) {
+  void useSkill(int heroIndex, SkillEntity skill) {
     if (state is! BattleInProgress) return;
     final currentState = state as BattleInProgress;
     
@@ -121,43 +120,43 @@ class BattleCubit extends Cubit<BattleState> {
     if (!currentState.isPlayerTurn) return;
     
     // Zaten kullanıldı mı kontrolü
-    if (currentState.usedTozIds.contains(toz.id)) return;
+    if (currentState.usedSkillIds.contains(skill.id)) return;
     
     final hero = currentState.playerTeam[heroIndex];
     if (!hero.isAlive) return;
     
     // Kut yeterli mi kontrolü
-    if (hero.kut < toz.cost) return;
+    if (hero.kut < skill.cost) return;
     
     // Töz etkisini uygula
-    HeroCardEntity updatedHero = hero.copyWith(kut: hero.kut - toz.cost);
+    HeroCardEntity updatedHero = hero.copyWith(kut: hero.kut - skill.cost);
     String logMsg = "";
     
-    switch (toz.type) {
-      case TozType.heal:
-        final newHealth = (updatedHero.health + toz.value).clamp(0, updatedHero.currentCp);
+    switch (skill.type) {
+      case SkillType.heal:
+        final newHealth = (updatedHero.health + skill.value).clamp(0, updatedHero.currentCp);
         updatedHero = updatedHero.copyWith(health: newHealth.toInt());
-        logMsg = "${hero.name}, ${toz.name} kullandı! ${toz.value} Can yeniledi.";
+        logMsg = "${hero.name}, ${skill.name} kullandı! ${skill.value} Can yeniledi.";
         break;
-      case TozType.attackBuff:
-        updatedHero = updatedHero.copyWith(bonusAttack: updatedHero.bonusAttack + toz.value);
-        logMsg = "${hero.name}, ${toz.name} kullandı! Saldırı gücü ${toz.value} arttı.";
+      case SkillType.attackBuff:
+        updatedHero = updatedHero.copyWith(bonusAttack: updatedHero.bonusAttack + skill.value);
+        logMsg = "${hero.name}, ${skill.name} kullandı! Saldırı gücü ${skill.value} arttı.";
         break;
-      case TozType.defenseBuff:
-        updatedHero = updatedHero.copyWith(bonusDefense: updatedHero.bonusDefense + toz.value);
-        logMsg = "${hero.name}, ${toz.name} kullandı! Savunma gücü ${toz.value} arttı.";
+      case SkillType.defenseBuff:
+        updatedHero = updatedHero.copyWith(bonusDefense: updatedHero.bonusDefense + skill.value);
+        logMsg = "${hero.name}, ${skill.name} kullandı! Savunma gücü ${skill.value} arttı.";
         break;
     }
     
     final updatedPlayerTeam = List<HeroCardEntity>.from(currentState.playerTeam);
     updatedPlayerTeam[heroIndex] = updatedHero;
     
-    final updatedUsedTozIds = List<String>.from(currentState.usedTozIds)..add(toz.id);
+    final updatedUsedSkillIds = List<String>.from(currentState.usedSkillIds)..add(skill.id);
     final updatedLogs = List<String>.from(currentState.battleLogs)..insert(0, logMsg);
     
     emit(currentState.copyWith(
       playerTeam: updatedPlayerTeam,
-      usedTozIds: updatedUsedTozIds,
+      usedSkillIds: updatedUsedSkillIds,
       battleLogs: updatedLogs,
     ));
   }
@@ -340,14 +339,14 @@ class BattleCubit extends Cubit<BattleState> {
     final startingHealth = (baseCp * levelMultiplier).round();
 
     // Rastgele Töz kartları ata
-    final randomToz = [
-      TozEntity(id: "toz_heal_$id", name: "Kut Şifası", description: "50 Can yeniler", cost: 1, type: TozType.heal, value: 50),
-      TozEntity(id: "toz_atk_$id", name: "Savaş Çığlığı", description: "Saldırı gücünü artırır (+10)", cost: 2, type: TozType.attackBuff, value: 10),
-      TozEntity(id: "toz_def_$id", name: "Demir Beden", description: "Savunmayı artırır (+10)", cost: 1, type: TozType.defenseBuff, value: 10),
-      TozEntity(id: "toz_heal2_$id", name: "Büyük Şifa", description: "100 Can yeniler", cost: 3, type: TozType.heal, value: 100),
-      TozEntity(id: "toz_atk2_$id", name: "Kanlı Hiddet", description: "Saldırı gücünü çok artırır (+25)", cost: 3, type: TozType.attackBuff, value: 25),
+    final randomSkill = [
+      SkillEntity(id: "toz_heal_$id", name: "Kut Şifası", description: "50 Can yeniler", cost: 1, type: SkillType.heal, value: 50),
+      SkillEntity(id: "toz_atk_$id", name: "Savaş Çığlığı", description: "Saldırı gücünü artırır (+10)", cost: 2, type: SkillType.attackBuff, value: 10),
+      SkillEntity(id: "toz_def_$id", name: "Demir Beden", description: "Savunmayı artırır (+10)", cost: 1, type: SkillType.defenseBuff, value: 10),
+      SkillEntity(id: "toz_heal2_$id", name: "Büyük Şifa", description: "100 Can yeniler", cost: 3, type: SkillType.heal, value: 100),
+      SkillEntity(id: "toz_atk2_$id", name: "Kanlı Hiddet", description: "Saldırı gücünü çok artırır (+25)", cost: 3, type: SkillType.attackBuff, value: 25),
     ];
-    randomToz.shuffle();
+    randomSkill.shuffle();
 
     return HeroCardEntity(
       id: "card_$id",
@@ -362,6 +361,6 @@ class BattleCubit extends Cubit<BattleState> {
       defensePower: defensePower,
       imageUrl: "🎴",
       kut: 0,
-      tozCards: randomToz.take(2).toList(),
+      skillCards: randomSkill.take(2).toList(),
     );
   }}

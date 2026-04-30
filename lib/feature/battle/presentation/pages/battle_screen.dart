@@ -22,13 +22,12 @@ class BattleView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // GoogleFonts yerine standart font simülasyonu ve teması
     return Theme(
       data: Theme.of(context).copyWith(
         textTheme: Theme.of(context).textTheme.apply(
           bodyColor: Colors.white,
           displayColor: Colors.white,
-          fontFamily: 'Serif', // Kadim bir hava için varsayılan serif fontu
+          fontFamily: 'Serif',
         ),
       ),
       child: Scaffold(
@@ -44,67 +43,33 @@ class BattleView extends StatelessWidget {
             }
 
             if (state is BattleInProgress) {
+              final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
               return Stack(
                 children: [
-                  Row(
-                    children: [
-                      // Sol Töz Paneli
-                      _buildLeftSidebar(context, state),
-
-                      // Orta: Savaş Alanı (3v3 Grid)
-                      Expanded(
-                        flex: 4,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const SizedBox(height: 40),
-                            // Düşman Takımı
-                            _buildTeamRow(context, state.enemyTeam, true, state),
-
-                            // Orta Alan: Savaş Efektleri ve Tur Bilgisi
-                            Expanded(
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      "TUR ${state.currentTurn}",
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white24,
-                                        letterSpacing: 8,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Icon(
-                                      state.isPlayerTurn ? LucideIcons.swords : LucideIcons.shieldAlert,
-                                      color: state.isPlayerTurn ? Colors.blue.withOpacity(0.2) : Colors.red.withOpacity(0.2),
-                                      size: 80,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            // Oyuncu Takımı
-                            _buildTeamRow(context, state.playerTeam, false, state),
-                            const SizedBox(height: 40),
-                          ],
+                  if (isPortrait)
+                    Column(
+                      children: [
+                        Expanded(flex: 3, child: _buildArena(context, state)),
+                        Expanded(flex: 1, child: _buildSidebar(context, state, isPortrait: true)),
+                      ],
+                    )
+                  else
+                    Row(
+                      children: [
+                        Expanded(flex: 3, child: _buildArena(context, state)),
+                        SizedBox(
+                          width: MediaQuery.of(context).size.width * 0.3,
+                          child: _buildSidebar(context, state, isPortrait: false),
                         ),
-                      ),
-
-                      // Sağ: Sidebar (Görsel ve Loglar)
-                      _buildSidebar(context, state),
-                    ],
-                  ),
+                      ],
+                    ),
 
                   // Sıra Uyarısı (Overlay)
                   if (!state.isPlayerTurn)
                     Positioned(
                       top: 20,
                       left: 0,
-                      right: MediaQuery.of(context).size.width * 0.25,
+                      right: 0,
                       child: Center(
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -129,6 +94,59 @@ class BattleView extends StatelessWidget {
     );
   }
 
+  Widget _buildArena(BuildContext context, BattleInProgress state) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const SizedBox(height: 10),
+        // Düşman Takımı
+        _buildTeamRow(context, state.enemyTeam, true, state),
+
+        // Orta Alan: Savaş Efektleri, Butonlar ve Tur Bilgisi
+        Expanded(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (state.selectedHeroIndex != null && state.selectedTargetIndex != null)
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    onPressed: () => context.read<BattleCubit>().executePlayerAttack(),
+                    icon: const Icon(LucideIcons.swords, color: Colors.white),
+                    label: const Text("SALDIR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  )
+                else
+                  Text(
+                    "TUR ${state.currentTurn}",
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white24,
+                      letterSpacing: 8,
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                if (state.selectedHeroIndex == null && state.selectedTargetIndex == null)
+                  Icon(
+                    state.isPlayerTurn ? LucideIcons.swords : LucideIcons.shieldAlert,
+                    color: state.isPlayerTurn ? Colors.blue.withOpacity(0.2) : Colors.red.withOpacity(0.2),
+                    size: 60,
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        // Oyuncu Takımı
+        _buildTeamRow(context, state.playerTeam, false, state),
+        const SizedBox(height: 10),
+      ],
+    );
+  }
+
   Widget _buildTeamRow(BuildContext context, List<dynamic> team, bool isEnemy, BattleInProgress state) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -139,15 +157,25 @@ class BattleView extends StatelessWidget {
             ? state.selectedTargetIndex == index
             : state.selectedHeroIndex == index;
 
+        double? advantageMultiplier;
+        if (isEnemy && state.selectedHeroIndex != null && isSelected) {
+          final playerHero = state.playerTeam[state.selectedHeroIndex!];
+          advantageMultiplier = playerHero.element.getDamageMultiplier(card.element);
+        }
+
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
           child: Opacity(
             opacity: card.isAlive ? (hasActed ? 0.5 : 1.0) : 0.3,
             child: KamCardWidget(
               card: card,
               isSelected: isSelected,
               isEnemy: isEnemy,
+              advantageMultiplier: advantageMultiplier,
               onTap: () => context.read<BattleCubit>().selectHero(index, isEnemy),
+              onTozPressed: (!isEnemy && isSelected && state.isPlayerTurn) 
+                  ? () => _showTozDialog(context, state) 
+                  : null,
             ),
           ),
         );
@@ -155,156 +183,104 @@ class BattleView extends StatelessWidget {
     );
   }
 
-  Widget _buildLeftSidebar(BuildContext context, BattleInProgress state) {
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.20,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F172A),
-        border: Border(right: BorderSide(color: Colors.white10)),
-      ),
-      child: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(12.0),
-            child: Text(
-              "Töz'ü Açığa Çıkar",
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.purpleAccent),
-            ),
-          ),
-          if (state.selectedHeroIndex == null)
-            const Expanded(
-              child: Center(
-                child: Text(
-                  "Bir kahraman seçin",
-                  style: TextStyle(color: Colors.white38, fontSize: 12),
-                ),
-              ),
-            )
-          else ...[
-            Builder(
-              builder: (context) {
-                final heroIndex = state.selectedHeroIndex!;
-                final hero = state.playerTeam[heroIndex];
-                return Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+  void _showTozDialog(BuildContext context, BattleInProgress state) {
+    final heroIndex = state.selectedHeroIndex;
+    if (heroIndex == null) return;
+    final hero = state.playerTeam[heroIndex];
+
+    showDialog(
+      context: context,
+      builder: (dContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0F172A),
+          title: Text("Töz'ü Açığa Çıkar - Kut: ${hero.kut}", style: const TextStyle(color: Colors.purpleAccent, fontSize: 16)),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 300,
+            child: ListView.builder(
+              itemCount: hero.skillCards.length,
+              itemBuilder: (itemContext, index) {
+                final skill = hero.skillCards[index];
+                final isUsed = state.usedSkillIds.contains(skill.id);
+                final canAfford = hero.kut >= skill.cost;
+                final isAvailable = !isUsed && canAfford && state.isPlayerTurn;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isAvailable ? const Color(0xFF1E293B) : Colors.black38,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: isAvailable ? Colors.purpleAccent : Colors.white10),
+                  ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(LucideIcons.zap, color: Colors.lightBlueAccent, size: 20),
-                        const SizedBox(width: 4),
-                        Text("Kut: ${hero.kut}", style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(child: Text(skill.name, style: TextStyle(color: isAvailable ? Colors.white : Colors.white38, fontWeight: FontWeight.bold, fontSize: 14), overflow: TextOverflow.ellipsis)),
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+                              child: Text(skill.cost.toString(), style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(skill.description, style: TextStyle(color: isAvailable ? Colors.white70 : Colors.white24, fontSize: 12)),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            if (isUsed)
+                              const Text("KULLANILDI", style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold))
+                            else if (!canAfford)
+                              const Text("YETERSİZ KUT", style: TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold))
+                            else
+                              const SizedBox.shrink(),
+                            if (isAvailable)
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.purpleAccent,
+                                  minimumSize: const Size(60, 30),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                ),
+                                onPressed: () {
+                                  context.read<BattleCubit>().useSkill(heroIndex, skill);
+                                  Navigator.pop(dContext);
+                                },
+                                child: const Text("KULLAN", style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                  ],
                 );
               },
             ),
-            Expanded(
-              child: Builder(
-                builder: (context) {
-                  final heroIndex = state.selectedHeroIndex!;
-                  final hero = state.playerTeam[heroIndex];
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    itemCount: hero.skillCards.length,
-                    itemBuilder: (context, index) {
-                      final skill = hero.skillCards[index];
-                      final isUsed = state.usedSkillIds.contains(skill.id);
-                      final canAfford = hero.kut >= skill.cost;
-                      final isAvailable = !isUsed && canAfford && state.isPlayerTurn;
-
-                      return GestureDetector(
-                        onTap: isAvailable ? () {
-                          context.read<BattleCubit>().useSkill(heroIndex, skill);
-                        } : null,
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: isAvailable ? const Color(0xFF1E293B) : Colors.black38,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isAvailable ? Colors.purpleAccent : Colors.white10),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(child: Text(skill.name, style: TextStyle(color: isAvailable ? Colors.white : Colors.white38, fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis)),
-                                  Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
-                                    child: Text(skill.cost.toString(), style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(skill.description, style: TextStyle(color: isAvailable ? Colors.white70 : Colors.white24, fontSize: 10)),
-                              if (isUsed)
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 4),
-                                  child: Text("KULLANILDI", style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-                                )
-                              else if (!canAfford && !isUsed)
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 4),
-                                  child: Text("YETERSİZ KUT", style: TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dContext),
+              child: const Text("KAPAT", style: TextStyle(color: Colors.white54)),
             ),
           ],
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildSidebar(BuildContext context, BattleInProgress state) {
+  Widget _buildSidebar(BuildContext context, BattleInProgress state, {required bool isPortrait}) {
     return Container(
-      width: MediaQuery.of(context).size.width * 0.25,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F172A),
-        border: Border(left: BorderSide(color: Colors.white10)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        border: isPortrait
+            ? const Border(top: BorderSide(color: Colors.white10))
+            : const Border(left: BorderSide(color: Colors.white10)),
       ),
       child: Column(
         children: [
-          // Üst Kısım: Statik Karakter Görseli veya Bilgi
-          AspectRatio(
-            aspectRatio: 1.2,
-            child: Container(
-              margin: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(LucideIcons.scroll, color: Colors.amber, size: 40),
-                  SizedBox(height: 8),
-                  Text(
-                    "SAVAŞ DURUMU",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.amber),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const Divider(color: Colors.white10, height: 1),
-
           // Başlık
           const Padding(
             padding: EdgeInsets.all(12.0),
@@ -319,11 +295,12 @@ class BattleView extends StatelessWidget {
               ],
             ),
           ),
+          const Divider(color: Colors.white10, height: 1),
 
           // Log Listesi
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               itemCount: state.battleLogs.length,
               itemBuilder: (context, index) {
                 final log = state.battleLogs[index];
