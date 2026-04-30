@@ -167,7 +167,7 @@ class BattleView extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.all(12.0),
             child: Text(
-              "TÖZ YETENEKLERİ",
+              "Töz'ü Açığa Çıkar",
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.purpleAccent),
             ),
           ),

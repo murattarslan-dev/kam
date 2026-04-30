@@ -113,7 +113,7 @@ class BattleCubit extends Cubit<BattleState> {
   }
 
   /// Seçilen kahraman için Töz kartı kullan
-  void useSkill(int heroIndex, SkillEntity skill) {
+  void useToz(int heroIndex, TozEntity toz) {
     if (state is! BattleInProgress) return;
     final currentState = state as BattleInProgress;
     
@@ -121,43 +121,43 @@ class BattleCubit extends Cubit<BattleState> {
     if (!currentState.isPlayerTurn) return;
     
     // Zaten kullanıldı mı kontrolü
-    if (currentState.usedSkillIds.contains(skill.id)) return;
+    if (currentState.usedTozIds.contains(toz.id)) return;
     
     final hero = currentState.playerTeam[heroIndex];
     if (!hero.isAlive) return;
     
     // Kut yeterli mi kontrolü
-    if (hero.kut < skill.cost) return;
+    if (hero.kut < toz.cost) return;
     
     // Töz etkisini uygula
-    HeroCardEntity updatedHero = hero.copyWith(kut: hero.kut - skill.cost);
+    HeroCardEntity updatedHero = hero.copyWith(kut: hero.kut - toz.cost);
     String logMsg = "";
     
-    switch (skill.type) {
-      case SkillType.heal:
-        final newHealth = (updatedHero.health + skill.value).clamp(0, updatedHero.currentCp);
+    switch (toz.type) {
+      case TozType.heal:
+        final newHealth = (updatedHero.health + toz.value).clamp(0, updatedHero.currentCp);
         updatedHero = updatedHero.copyWith(health: newHealth.toInt());
-        logMsg = "${hero.name}, ${skill.name} kullandı! ${skill.value} Can yeniledi.";
+        logMsg = "${hero.name}, ${toz.name} kullandı! ${toz.value} Can yeniledi.";
         break;
-      case SkillType.attackBuff:
-        updatedHero = updatedHero.copyWith(bonusAttack: updatedHero.bonusAttack + skill.value);
-        logMsg = "${hero.name}, ${skill.name} kullandı! Saldırı gücü ${skill.value} arttı.";
+      case TozType.attackBuff:
+        updatedHero = updatedHero.copyWith(bonusAttack: updatedHero.bonusAttack + toz.value);
+        logMsg = "${hero.name}, ${toz.name} kullandı! Saldırı gücü ${toz.value} arttı.";
         break;
-      case SkillType.defenseBuff:
-        updatedHero = updatedHero.copyWith(bonusDefense: updatedHero.bonusDefense + skill.value);
-        logMsg = "${hero.name}, ${skill.name} kullandı! Savunma gücü ${skill.value} arttı.";
+      case TozType.defenseBuff:
+        updatedHero = updatedHero.copyWith(bonusDefense: updatedHero.bonusDefense + toz.value);
+        logMsg = "${hero.name}, ${toz.name} kullandı! Savunma gücü ${toz.value} arttı.";
         break;
     }
     
     final updatedPlayerTeam = List<HeroCardEntity>.from(currentState.playerTeam);
     updatedPlayerTeam[heroIndex] = updatedHero;
     
-    final updatedUsedSkillIds = List<String>.from(currentState.usedSkillIds)..add(skill.id);
+    final updatedUsedTozIds = List<String>.from(currentState.usedTozIds)..add(toz.id);
     final updatedLogs = List<String>.from(currentState.battleLogs)..insert(0, logMsg);
     
     emit(currentState.copyWith(
       playerTeam: updatedPlayerTeam,
-      usedSkillIds: updatedUsedSkillIds,
+      usedTozIds: updatedUsedTozIds,
       battleLogs: updatedLogs,
     ));
   }
@@ -269,56 +269,56 @@ class BattleCubit extends Cubit<BattleState> {
 
     // Fire (Ateş) - 5 kart
     cards.addAll([
-      _buildCard(id++, "Ateş Başkanı", HeroElement.fire, HeroRole.warrior, 38, 12, 245),
-      _buildCard(id++, "Ateş Aslanı", HeroElement.fire, HeroRole.warrior, 36, 12, 242),
-      _buildCard(id++, "Ateş Sipahi", HeroElement.fire, HeroRole.tank, 18, 20, 248),
-      _buildCard(id++, "Ateş Koruma", HeroElement.fire, HeroRole.tank, 16, 22, 250),
-      _buildCard(id++, "Ateş Şamani", HeroElement.fire, HeroRole.support, 14, 10, 265),
+      _buildCard(id++, "Ateş Başkanı", HeroElement.fire, HeroRole.warrior, 38, 12, 145),
+      _buildCard(id++, "Ateş Aslanı", HeroElement.fire, HeroRole.warrior, 36, 12, 142),
+      _buildCard(id++, "Ateş Sipahi", HeroElement.fire, HeroRole.tank, 18, 20, 148),
+      _buildCard(id++, "Ateş Koruma", HeroElement.fire, HeroRole.tank, 16, 22, 150),
+      _buildCard(id++, "Ateş Şamani", HeroElement.fire, HeroRole.support, 14, 10, 165),
     ]);
 
     // Water (Su) - 5 kart
     cards.addAll([
-      _buildCard(id++, "Su Cini", HeroElement.water, HeroRole.warrior, 38, 12, 245),
-      _buildCard(id++, "Balık Prens", HeroElement.water, HeroRole.warrior, 36, 12, 242),
-      _buildCard(id++, "Su Sipahi", HeroElement.water, HeroRole.tank, 18, 20, 248),
-      _buildCard(id++, "Su Perisi", HeroElement.water, HeroRole.tank, 16, 22, 250),
-      _buildCard(id++, "Su Şamani", HeroElement.water, HeroRole.support, 14, 10, 265),
+      _buildCard(id++, "Su Cini", HeroElement.water, HeroRole.warrior, 38, 12, 145),
+      _buildCard(id++, "Balık Prens", HeroElement.water, HeroRole.warrior, 36, 12, 142),
+      _buildCard(id++, "Su Sipahi", HeroElement.water, HeroRole.tank, 18, 20, 148),
+      _buildCard(id++, "Su Perisi", HeroElement.water, HeroRole.tank, 16, 22, 150),
+      _buildCard(id++, "Su Şamani", HeroElement.water, HeroRole.support, 14, 10, 165),
     ]);
 
     // Wind (Rüzgar) - 5 kart
     cards.addAll([
-      _buildCard(id++, "Rüzgar Şahı", HeroElement.wind, HeroRole.warrior, 38, 12, 245),
-      _buildCard(id++, "Fırtına Cini", HeroElement.wind, HeroRole.warrior, 36, 12, 242),
-      _buildCard(id++, "Hava Sipahi", HeroElement.wind, HeroRole.tank, 18, 20, 248),
-      _buildCard(id++, "Hava Koruma", HeroElement.wind, HeroRole.tank, 16, 22, 250),
-      _buildCard(id++, "Hava Şamani", HeroElement.wind, HeroRole.support, 14, 10, 265),
+      _buildCard(id++, "Rüzgar Şahı", HeroElement.wind, HeroRole.warrior, 38, 12, 145),
+      _buildCard(id++, "Fırtına Cini", HeroElement.wind, HeroRole.warrior, 36, 12, 142),
+      _buildCard(id++, "Hava Sipahi", HeroElement.wind, HeroRole.tank, 18, 20, 148),
+      _buildCard(id++, "Hava Koruma", HeroElement.wind, HeroRole.tank, 16, 22, 150),
+      _buildCard(id++, "Hava Şamani", HeroElement.wind, HeroRole.support, 14, 10, 165),
     ]);
 
     // Forest (Orman) - 5 kart
     cards.addAll([
-      _buildCard(id++, "Orman Cini", HeroElement.forest, HeroRole.warrior, 38, 12, 245),
-      _buildCard(id++, "Ağaç Satırı", HeroElement.forest, HeroRole.warrior, 36, 12, 242),
-      _buildCard(id++, "Orman Sipahi", HeroElement.forest, HeroRole.tank, 18, 20, 248),
-      _buildCard(id++, "Ağaç Perisi", HeroElement.forest, HeroRole.tank, 16, 22, 250),
-      _buildCard(id++, "Orman Şamani", HeroElement.forest, HeroRole.support, 14, 10, 265),
+      _buildCard(id++, "Orman Cini", HeroElement.forest, HeroRole.warrior, 38, 12, 145),
+      _buildCard(id++, "Ağaç Satırı", HeroElement.forest, HeroRole.warrior, 36, 12, 142),
+      _buildCard(id++, "Orman Sipahi", HeroElement.forest, HeroRole.tank, 18, 20, 148),
+      _buildCard(id++, "Ağaç Perisi", HeroElement.forest, HeroRole.tank, 16, 22, 150),
+      _buildCard(id++, "Orman Şamani", HeroElement.forest, HeroRole.support, 14, 10, 165),
     ]);
 
     // Dark (Karanlık) - 5 kart
     cards.addAll([
-      _buildCard(id++, "Karanlık Savaşçı", HeroElement.dark, HeroRole.warrior, 38, 12, 245),
-      _buildCard(id++, "Gölge Alp", HeroElement.dark, HeroRole.warrior, 36, 12, 242),
-      _buildCard(id++, "Gölge Sipahi", HeroElement.dark, HeroRole.tank, 18, 20, 248),
-      _buildCard(id++, "Karanlık Koruma", HeroElement.dark, HeroRole.tank, 16, 22, 250),
-      _buildCard(id++, "Karanlık Şamani", HeroElement.dark, HeroRole.support, 14, 10, 265),
+      _buildCard(id++, "Karanlık Savaşçı", HeroElement.dark, HeroRole.warrior, 38, 12, 145),
+      _buildCard(id++, "Gölge Alp", HeroElement.dark, HeroRole.warrior, 36, 12, 142),
+      _buildCard(id++, "Gölge Sipahi", HeroElement.dark, HeroRole.tank, 18, 20, 148),
+      _buildCard(id++, "Karanlık Koruma", HeroElement.dark, HeroRole.tank, 16, 22, 150),
+      _buildCard(id++, "Karanlık Şamani", HeroElement.dark, HeroRole.support, 14, 10, 165),
     ]);
 
     // Steppe (Bozkır) - 5 kart
     cards.addAll([
-      _buildCard(id++, "Bozkır Savaşçı", HeroElement.steppe, HeroRole.warrior, 38, 12, 245),
-      _buildCard(id++, "Steppe Cini", HeroElement.steppe, HeroRole.warrior, 36, 12, 242),
-      _buildCard(id++, "Bozkır Sipahi", HeroElement.steppe, HeroRole.tank, 18, 20, 248),
-      _buildCard(id++, "Steppe Koruma", HeroElement.steppe, HeroRole.tank, 16, 22, 250),
-      _buildCard(id++, "Bozkır Şamani", HeroElement.steppe, HeroRole.support, 14, 10, 265),
+      _buildCard(id++, "Bozkır Savaşçı", HeroElement.steppe, HeroRole.warrior, 38, 12, 145),
+      _buildCard(id++, "Steppe Cini", HeroElement.steppe, HeroRole.warrior, 36, 12, 142),
+      _buildCard(id++, "Bozkır Sipahi", HeroElement.steppe, HeroRole.tank, 18, 20, 148),
+      _buildCard(id++, "Steppe Koruma", HeroElement.steppe, HeroRole.tank, 16, 22, 150),
+      _buildCard(id++, "Bozkır Şamani", HeroElement.steppe, HeroRole.support, 14, 10, 165),
     ]);
 
     return cards;
@@ -340,14 +340,14 @@ class BattleCubit extends Cubit<BattleState> {
     final startingHealth = (baseCp * levelMultiplier).round();
 
     // Rastgele Töz kartları ata
-    final randomSkills = [
-      SkillEntity(id: "skill_heal_$id", name: "Kut Şifası", description: "50 Can yeniler", cost: 1, type: SkillType.heal, value: 50),
-      SkillEntity(id: "skill_atk_$id", name: "Savaş Çığlığı", description: "Saldırı gücünü artırır (+10)", cost: 2, type: SkillType.attackBuff, value: 10),
-      SkillEntity(id: "skill_def_$id", name: "Demir Beden", description: "Savunmayı artırır (+10)", cost: 1, type: SkillType.defenseBuff, value: 10),
-      SkillEntity(id: "skill_heal2_$id", name: "Büyük Şifa", description: "100 Can yeniler", cost: 3, type: SkillType.heal, value: 100),
-      SkillEntity(id: "skill_atk2_$id", name: "Kanlı Hiddet", description: "Saldırı gücünü çok artırır (+25)", cost: 3, type: SkillType.attackBuff, value: 25),
+    final randomToz = [
+      TozEntity(id: "toz_heal_$id", name: "Kut Şifası", description: "50 Can yeniler", cost: 1, type: TozType.heal, value: 50),
+      TozEntity(id: "toz_atk_$id", name: "Savaş Çığlığı", description: "Saldırı gücünü artırır (+10)", cost: 2, type: TozType.attackBuff, value: 10),
+      TozEntity(id: "toz_def_$id", name: "Demir Beden", description: "Savunmayı artırır (+10)", cost: 1, type: TozType.defenseBuff, value: 10),
+      TozEntity(id: "toz_heal2_$id", name: "Büyük Şifa", description: "100 Can yeniler", cost: 3, type: TozType.heal, value: 100),
+      TozEntity(id: "toz_atk2_$id", name: "Kanlı Hiddet", description: "Saldırı gücünü çok artırır (+25)", cost: 3, type: TozType.attackBuff, value: 25),
     ];
-    randomSkills.shuffle();
+    randomToz.shuffle();
 
     return HeroCardEntity(
       id: "card_$id",
@@ -362,6 +362,6 @@ class BattleCubit extends Cubit<BattleState> {
       defensePower: defensePower,
       imageUrl: "🎴",
       kut: 0,
-      skillCards: randomSkills.take(2).toList(),
+      tozCards: randomToz.take(2).toList(),
     );
   }}
