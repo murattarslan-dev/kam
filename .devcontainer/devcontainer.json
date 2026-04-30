@@ -1,8 +1,5 @@
 {
   "name": "Flutter Project",
-  "image": "mcr.microsoft.com/devcontainers/universal:2",
-  "features": {
-    "ghcr.io/devcontainers/features/flutter:1": {}
-  },
+  "image": "ghcr.io/cirruslabs/flutter:stable",
   "postCreateCommand": "flutter pub get"
 }
