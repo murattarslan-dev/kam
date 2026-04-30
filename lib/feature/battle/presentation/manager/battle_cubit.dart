@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../battle/domain/entities/hero_entities.dart';
@@ -60,15 +61,48 @@ class BattleCubit extends Cubit<BattleState> {
 
 
 
-  /// Oyuncu saldırısını gerçekleştirir
+  /// Oyuncu saldırısını başlatır (Animasyonu tetikler)
   void executePlayerAttack() {
     if (state is! BattleInProgress) return;
     final currentState = state as BattleInProgress;
 
+    if (currentState.selectedHeroIndex == null || currentState.selectedTargetIndex == null) return;
+
     final attacker = currentState.playerTeam[currentState.selectedHeroIndex!];
     final target = currentState.enemyTeam[currentState.selectedTargetIndex!];
 
-    // Hasar hesaplama (XP / seviye etkisini dahil ediyoruz)
+    emit(currentState.copyWith(
+      currentAction: BattleAction(
+        attacker: attacker,
+        target: target,
+        isPlayerAttacking: true,
+      ),
+    ));
+  }
+
+  /// Animasyon tamamlandığında hasarı uygular
+  void onAnimationComplete() {
+    if (state is! BattleInProgress) return;
+    final currentState = state as BattleInProgress;
+    final action = currentState.currentAction;
+    if (action == null) return;
+
+    if (action.isPlayerAttacking) {
+      _applyPlayerAttack(currentState, action);
+    } else {
+      // Düşman saldırısı zaten döngü içinde yönetiliyor, 
+      // ama animasyon bitişini beklemek için bir sinyal verebiliriz.
+      _enemyAnimationCompleter?.complete();
+    }
+  }
+
+  Completer<void>? _enemyAnimationCompleter;
+
+  void _applyPlayerAttack(BattleInProgress currentState, BattleAction action) {
+    final attacker = action.attacker;
+    final target = action.target;
+
+    // Hasar hesaplama
     final rawDamage = (attacker.currentAttackPower * attacker.element.getDamageMultiplier(target.element)).round();
     final defenseReduction = (target.currentDefensePower).round();
     final damage = max(1, rawDamage - defenseReduction);
@@ -76,27 +110,29 @@ class BattleCubit extends Cubit<BattleState> {
 
     int earnedKut = 0;
     if (newHealth <= 0) {
-      earnedKut = 2; // Düşman öldürülürse +2 Kut
+      earnedKut = 2;
     }
 
     // Düşman takımını güncelle
     final updatedEnemyTeam = List<HeroCardEntity>.from(currentState.enemyTeam);
-    updatedEnemyTeam[currentState.selectedTargetIndex!] = target.copyWith(health: newHealth.toInt());
-
-    // Oyuncu takımını güncelle (Kut için)
-    final updatedPlayerTeam = List<HeroCardEntity>.from(currentState.playerTeam);
-    if (earnedKut > 0) {
-       updatedPlayerTeam[currentState.selectedHeroIndex!] = attacker.copyWith(kut: attacker.kut + earnedKut);
+    final targetIndex = updatedEnemyTeam.indexWhere((e) => e.id == target.id);
+    if (targetIndex != -1) {
+      updatedEnemyTeam[targetIndex] = target.copyWith(health: newHealth.toInt());
     }
 
-    // Log ve İstatistikler
-    final newLog = "${attacker.name}, ${target.name} birimine $damage hasar verdi!" + (earnedKut > 0 ? " (+2 Kut kazandı!)" : "");
+    // Oyuncu takımını güncelle
+    final updatedPlayerTeam = List<HeroCardEntity>.from(currentState.playerTeam);
+    final attackerIndex = updatedPlayerTeam.indexWhere((p) => p.id == attacker.id);
+    if (attackerIndex != -1) {
+       updatedPlayerTeam[attackerIndex] = attacker.copyWith(kut: attacker.kut + earnedKut);
+    }
+
+    final newLog = "${attacker.name}, ${target.name} birimine $damage hasar verdi!${earnedKut > 0 ? " (+2 Kut kazandı!)" : ""}";
     final updatedLogs = List<String>.from(currentState.battleLogs)..insert(0, newLog);
 
     final updatedDamageMap = Map<String, double>.from(currentState.totalDamageDealt);
     updatedDamageMap[attacker.id] = (updatedDamageMap[attacker.id] ?? 0) + damage;
 
-    // Hamle yapanları güncelle
     final updatedActedIds = List<String>.from(currentState.actedHeroIds)..add(attacker.id);
 
     final nextState = currentState.copyWith(
@@ -106,6 +142,7 @@ class BattleCubit extends Cubit<BattleState> {
       actedHeroIds: updatedActedIds,
       totalDamageDealt: updatedDamageMap,
       clearSelection: true,
+      clearAction: true,
     );
 
     _processTurnEnd(nextState);
@@ -211,6 +248,21 @@ class BattleCubit extends Cubit<BattleState> {
 
       // Rastgele bir hedef seç
       final target = alivePlayers[Random().nextInt(alivePlayers.length)];
+      
+      // Animasyonu başlat
+      _enemyAnimationCompleter = Completer<void>();
+      emit(currentState.copyWith(
+        currentAction: BattleAction(
+          attacker: enemy,
+          target: target,
+          isPlayerAttacking: false,
+        ),
+      ));
+
+      // Animasyonun bitmesini bekle
+      await _enemyAnimationCompleter!.future;
+      _enemyAnimationCompleter = null;
+
       final rawDamage = (enemy.currentAttackPower * enemy.element.getDamageMultiplier(target.element)).round();
       final defenseReduction = (target.currentDefensePower * 0.2).round();
       final damage = max(1, rawDamage - defenseReduction);
@@ -227,6 +279,7 @@ class BattleCubit extends Cubit<BattleState> {
       currentState = currentState.copyWith(
         playerTeam: updatedPlayerTeam,
         battleLogs: [log, ...currentState.battleLogs],
+        clearAction: true,
       );
 
       emit(currentState);

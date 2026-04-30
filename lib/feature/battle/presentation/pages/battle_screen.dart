@@ -17,8 +17,205 @@ class BattleScreen extends StatelessWidget {
   }
 }
 
-class BattleView extends StatelessWidget {
+class BattleAnimationOverlay extends StatefulWidget {
+  final BattleAction action;
+  final VoidCallback onComplete;
+
+  const BattleAnimationOverlay({
+    super.key,
+    required this.action,
+    required this.onComplete,
+  });
+
+  @override
+  State<BattleAnimationOverlay> createState() => _BattleAnimationOverlayState();
+}
+
+class _BattleAnimationOverlayState extends State<BattleAnimationOverlay> with TickerProviderStateMixin {
+  late AnimationController _moveController;
+  late AnimationController _shakeController;
+  late AnimationController _flashController;
+
+  late Animation<double> _moveAnimation;
+  late Animation<double> _shakeAnimation;
+  late Animation<double> _flashAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Hareket Animasyonu: 0.0 -> 1.0 (Merkeze gidiş)
+    _moveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+
+    _moveAnimation = CurvedAnimation(
+      parent: _moveController,
+      curve: Curves.easeInExpo,
+    );
+
+    // Titreme Animasyonu
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    _shakeAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 20.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 20.0, end: -20.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -20.0, end: 0.0), weight: 1),
+    ]).animate(_shakeController);
+
+    // Parlama Animasyonu
+    _flashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+
+    _flashAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_flashController);
+
+    _startSequence();
+  }
+
+  Future<void> _startSequence() async {
+    // 1. Merkeze doğru hızlanarak git
+    await _moveController.forward();
+
+    // 2. Çarpışma: Parlama ve Kısa Titreme
+    _flashController.forward();
+    _shakeController.forward();
+    await Future.delayed(const Duration(milliseconds: 150));
+    _flashController.reverse();
+    _shakeController.reverse();
+
+    // 3. Geri yerlerine dön
+    await _moveController.reverse();
+
+    // 4. Bitiş
+    widget.onComplete();
+  }
+
+  @override
+  void dispose() {
+    _moveController.dispose();
+    _shakeController.dispose();
+    _flashController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // Arka Plan Karartma
+        Container(color: Colors.black45),
+
+        AnimatedBuilder(
+          animation: Listenable.merge([_moveAnimation, _shakeAnimation, _flashAnimation]),
+          builder: (context, child) {
+            final size = MediaQuery.of(context).size;
+            final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+
+            // Kartların başlangıç ve bitiş konumları
+            // Oyuncu altta, Düşman üstte (Portrait)
+            // Oyuncu solda, Düşman sağda (Landscape)
+            
+            double attackerX = 0, attackerY = 0;
+            double targetX = 0, targetY = 0;
+
+            if (isPortrait) {
+              // Dikey konumlandırma
+              double startY = size.height * 0.3; // Oyuncu alt
+              double endY = size.height * -0.3; // Düşman üst
+              
+              if (widget.action.isPlayerAttacking) {
+                attackerY = startY * (1 - _moveAnimation.value);
+                targetY = endY * (1 - _moveAnimation.value);
+              } else {
+                attackerY = endY * (1 - _moveAnimation.value);
+                targetY = startY * (1 - _moveAnimation.value);
+              }
+            } else {
+              // Yatay konumlandırma
+              double startX = size.width * 0.3;
+              double endX = size.width * -0.3;
+
+              if (widget.action.isPlayerAttacking) {
+                attackerX = startX * (1 - _moveAnimation.value);
+                targetX = endX * (1 - _moveAnimation.value);
+              } else {
+                attackerX = endX * (1 - _moveAnimation.value);
+                targetX = startX * (1 - _moveAnimation.value);
+              }
+            }
+
+            // Titreme ofseti
+            final shakeOffset = Offset(_shakeAnimation.value, _shakeAnimation.value / 2);
+
+            return Stack(
+              children: [
+                // Saldıran Kart
+                Center(
+                  child: Transform.translate(
+                    offset: Offset(attackerX, attackerY) + shakeOffset,
+                    child: KamCardWidget(
+                      card: widget.action.attacker,
+                      isSelected: true,
+                      isEnemy: !widget.action.isPlayerAttacking,
+                      onTap: () {},
+                    ),
+                  ),
+                ),
+
+                // Hedef Kart
+                Center(
+                  child: Transform.translate(
+                    offset: Offset(targetX, targetY) + shakeOffset,
+                    child: KamCardWidget(
+                      card: widget.action.target,
+                      isSelected: false,
+                      isEnemy: widget.action.isPlayerAttacking,
+                      onTap: () {},
+                    ),
+                  ),
+                ),
+
+                // Parlama Efekti
+                if (_flashAnimation.value > 0)
+                  Center(
+                    child: Container(
+                      width: 300,
+                      height: 300,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.white.withValues(alpha: _flashAnimation.value),
+                            Colors.blueAccent.withValues(alpha: _flashAnimation.value * 0.5),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class BattleView extends StatefulWidget {
   const BattleView({super.key});
+
+  @override
+  State<BattleView> createState() => _BattleViewState();
+}
+
+class _BattleViewState extends State<BattleView> {
 
   @override
   Widget build(BuildContext context) {
@@ -64,8 +261,15 @@ class BattleView extends StatelessWidget {
                       ],
                     ),
 
+                  // Animasyon Overlay
+                  if (state.currentAction != null)
+                    BattleAnimationOverlay(
+                      action: state.currentAction!,
+                      onComplete: () => context.read<BattleCubit>().onAnimationComplete(),
+                    ),
+
                   // Sıra Uyarısı (Overlay)
-                  if (!state.isPlayerTurn)
+                  if (!state.isPlayerTurn && state.currentAction == null)
                     Positioned(
                       top: 20,
                       left: 0,
@@ -74,7 +278,7 @@ class BattleView extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.redAccent.withOpacity(0.8),
+                            color: Colors.redAccent.withValues(alpha: 0.8),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
@@ -132,7 +336,7 @@ class BattleView extends StatelessWidget {
                 if (state.selectedHeroIndex == null && state.selectedTargetIndex == null)
                   Icon(
                     state.isPlayerTurn ? LucideIcons.swords : LucideIcons.shieldAlert,
-                    color: state.isPlayerTurn ? Colors.blue.withOpacity(0.2) : Colors.red.withOpacity(0.2),
+                    color: state.isPlayerTurn ? Colors.blue.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2),
                     size: 60,
                   ),
               ],
@@ -157,6 +361,10 @@ class BattleView extends StatelessWidget {
             ? state.selectedTargetIndex == index
             : state.selectedHeroIndex == index;
 
+        // Animasyon sırasında ilgili kartları gizle
+        final bool isAnimating = state.currentAction?.attacker.id == card.id || 
+                                 state.currentAction?.target.id == card.id;
+
         double? advantageMultiplier;
         if (isEnemy && state.selectedHeroIndex != null && isSelected) {
           final playerHero = state.playerTeam[state.selectedHeroIndex!];
@@ -166,7 +374,7 @@ class BattleView extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4.0),
           child: Opacity(
-            opacity: card.isAlive ? (hasActed ? 0.5 : 1.0) : 0.3,
+            opacity: isAnimating ? 0.0 : (card.isAlive ? (hasActed ? 0.5 : 1.0) : 0.3),
             child: KamCardWidget(
               card: card,
               isSelected: isSelected,
@@ -309,7 +517,7 @@ class BattleView extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isNew ? Colors.white.withOpacity(0.05) : Colors.transparent,
+                    color: isNew ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
                     borderRadius: BorderRadius.circular(4),
                     border: isNew ? Border.all(color: Colors.white10) : null,
                   ),

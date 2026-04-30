@@ -6,6 +6,19 @@ sealed class BattleState {
   const BattleState();
 }
 
+/// Savaş sırasında gerçekleşen bir aksiyonu (saldırı animasyonu vb.) temsil eder
+final class BattleAction {
+  final HeroCardEntity attacker;
+  final HeroCardEntity target;
+  final bool isPlayerAttacking;
+
+  const BattleAction({
+    required this.attacker,
+    required this.target,
+    required this.isPlayerAttacking,
+  });
+}
+
 final class BattleInitial extends BattleState {
   const BattleInitial();
 }
@@ -39,6 +52,9 @@ final class BattleInProgress extends BattleState {
   // Yetenek Takibi
   final List<String> usedSkillIds; // Bu savaş boyunca kullanılmış Töz kartlarının ID'leri
 
+  // Mevcut Animasyon
+  final BattleAction? currentAction; // O an oynatılan bir animasyon varsa
+
   const BattleInProgress({
     required this.playerTeam,
     required this.enemyTeam,
@@ -51,6 +67,7 @@ final class BattleInProgress extends BattleState {
     this.totalDamageDealt = const {},
     this.turnsSinceEffect = const {},
     this.usedSkillIds = const [],
+    this.currentAction,
   });
 
   /// State'i güncellerken değişmeyen alanları korumamızı sağlayan yardımcı metod
@@ -66,8 +83,10 @@ final class BattleInProgress extends BattleState {
     Map<String, double>? totalDamageDealt,
     Map<String, int>? turnsSinceEffect,
     List<String>? usedSkillIds,
+    BattleAction? currentAction,
     bool clearSelection = false,
     bool clearTarget = false,
+    bool clearAction = false,
   }) {
     return BattleInProgress(
       playerTeam: playerTeam ?? this.playerTeam,
@@ -81,6 +100,7 @@ final class BattleInProgress extends BattleState {
       totalDamageDealt: totalDamageDealt ?? this.totalDamageDealt,
       turnsSinceEffect: turnsSinceEffect ?? this.turnsSinceEffect,
       usedSkillIds: usedSkillIds ?? this.usedSkillIds,
+      currentAction: clearAction ? null : (currentAction ?? this.currentAction),
     );
   }
 

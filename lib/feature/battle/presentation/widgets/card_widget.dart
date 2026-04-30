@@ -318,7 +318,7 @@ class KamCardWidget extends StatelessWidget {
         Icon(icon, size: 12, color: color),
         Text(
           value,
-          style: TextStyle(color: color.withOpacity(0.8), fontSize: 9, fontWeight: FontWeight.bold),
+          style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 9, fontWeight: FontWeight.bold),
         ),
       ],
     );
