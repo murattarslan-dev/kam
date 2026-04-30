@@ -197,56 +197,56 @@ class BattleCubit extends Cubit<BattleState> {
 
     // Fire (Ateş) - 5 kart
     cards.addAll([
-      _buildCard(id++, "Ateş Başkanı", HeroElement.fire, HeroRole.warrior, 38, 12, 45),
-      _buildCard(id++, "Ateş Aslanı", HeroElement.fire, HeroRole.warrior, 36, 12, 42),
-      _buildCard(id++, "Ateş Sipahi", HeroElement.fire, HeroRole.tank, 18, 20, 48),
-      _buildCard(id++, "Ateş Koruma", HeroElement.fire, HeroRole.tank, 16, 22, 50),
-      _buildCard(id++, "Ateş Şamani", HeroElement.fire, HeroRole.support, 14, 10, 65),
+      _buildCard(id++, "Ateş Başkanı", HeroElement.fire, HeroRole.warrior, 38, 12, 245),
+      _buildCard(id++, "Ateş Aslanı", HeroElement.fire, HeroRole.warrior, 36, 12, 242),
+      _buildCard(id++, "Ateş Sipahi", HeroElement.fire, HeroRole.tank, 18, 20, 248),
+      _buildCard(id++, "Ateş Koruma", HeroElement.fire, HeroRole.tank, 16, 22, 250),
+      _buildCard(id++, "Ateş Şamani", HeroElement.fire, HeroRole.support, 14, 10, 265),
     ]);
 
     // Water (Su) - 5 kart
     cards.addAll([
-      _buildCard(id++, "Su Cini", HeroElement.water, HeroRole.warrior, 38, 12, 45),
-      _buildCard(id++, "Balık Prens", HeroElement.water, HeroRole.warrior, 36, 12, 42),
-      _buildCard(id++, "Su Sipahi", HeroElement.water, HeroRole.tank, 18, 20, 48),
-      _buildCard(id++, "Su Perisi", HeroElement.water, HeroRole.tank, 16, 22, 50),
-      _buildCard(id++, "Su Şamani", HeroElement.water, HeroRole.support, 14, 10, 65),
+      _buildCard(id++, "Su Cini", HeroElement.water, HeroRole.warrior, 38, 12, 245),
+      _buildCard(id++, "Balık Prens", HeroElement.water, HeroRole.warrior, 36, 12, 242),
+      _buildCard(id++, "Su Sipahi", HeroElement.water, HeroRole.tank, 18, 20, 248),
+      _buildCard(id++, "Su Perisi", HeroElement.water, HeroRole.tank, 16, 22, 250),
+      _buildCard(id++, "Su Şamani", HeroElement.water, HeroRole.support, 14, 10, 265),
     ]);
 
     // Wind (Rüzgar) - 5 kart
     cards.addAll([
-      _buildCard(id++, "Rüzgar Şahı", HeroElement.wind, HeroRole.warrior, 38, 12, 45),
-      _buildCard(id++, "Fırtına Cini", HeroElement.wind, HeroRole.warrior, 36, 12, 42),
-      _buildCard(id++, "Hava Sipahi", HeroElement.wind, HeroRole.tank, 18, 20, 48),
-      _buildCard(id++, "Hava Koruma", HeroElement.wind, HeroRole.tank, 16, 22, 50),
-      _buildCard(id++, "Hava Şamani", HeroElement.wind, HeroRole.support, 14, 10, 65),
+      _buildCard(id++, "Rüzgar Şahı", HeroElement.wind, HeroRole.warrior, 38, 12, 245),
+      _buildCard(id++, "Fırtına Cini", HeroElement.wind, HeroRole.warrior, 36, 12, 242),
+      _buildCard(id++, "Hava Sipahi", HeroElement.wind, HeroRole.tank, 18, 20, 248),
+      _buildCard(id++, "Hava Koruma", HeroElement.wind, HeroRole.tank, 16, 22, 250),
+      _buildCard(id++, "Hava Şamani", HeroElement.wind, HeroRole.support, 14, 10, 265),
     ]);
 
     // Forest (Orman) - 5 kart
     cards.addAll([
-      _buildCard(id++, "Orman Cini", HeroElement.forest, HeroRole.warrior, 38, 12, 45),
-      _buildCard(id++, "Ağaç Satırı", HeroElement.forest, HeroRole.warrior, 36, 12, 42),
-      _buildCard(id++, "Orman Sipahi", HeroElement.forest, HeroRole.tank, 18, 20, 48),
-      _buildCard(id++, "Ağaç Perisi", HeroElement.forest, HeroRole.tank, 16, 22, 50),
-      _buildCard(id++, "Orman Şamani", HeroElement.forest, HeroRole.support, 14, 10, 65),
+      _buildCard(id++, "Orman Cini", HeroElement.forest, HeroRole.warrior, 38, 12, 245),
+      _buildCard(id++, "Ağaç Satırı", HeroElement.forest, HeroRole.warrior, 36, 12, 242),
+      _buildCard(id++, "Orman Sipahi", HeroElement.forest, HeroRole.tank, 18, 20, 248),
+      _buildCard(id++, "Ağaç Perisi", HeroElement.forest, HeroRole.tank, 16, 22, 250),
+      _buildCard(id++, "Orman Şamani", HeroElement.forest, HeroRole.support, 14, 10, 265),
     ]);
 
     // Dark (Karanlık) - 5 kart
     cards.addAll([
-      _buildCard(id++, "Karanlık Savaşçı", HeroElement.dark, HeroRole.warrior, 38, 12, 45),
-      _buildCard(id++, "Gölge Alp", HeroElement.dark, HeroRole.warrior, 36, 12, 42),
-      _buildCard(id++, "Gölge Sipahi", HeroElement.dark, HeroRole.tank, 18, 20, 48),
-      _buildCard(id++, "Karanlık Koruma", HeroElement.dark, HeroRole.tank, 16, 22, 50),
-      _buildCard(id++, "Karanlık Şamani", HeroElement.dark, HeroRole.support, 14, 10, 65),
+      _buildCard(id++, "Karanlık Savaşçı", HeroElement.dark, HeroRole.warrior, 38, 12, 245),
+      _buildCard(id++, "Gölge Alp", HeroElement.dark, HeroRole.warrior, 36, 12, 242),
+      _buildCard(id++, "Gölge Sipahi", HeroElement.dark, HeroRole.tank, 18, 20, 248),
+      _buildCard(id++, "Karanlık Koruma", HeroElement.dark, HeroRole.tank, 16, 22, 250),
+      _buildCard(id++, "Karanlık Şamani", HeroElement.dark, HeroRole.support, 14, 10, 265),
     ]);
 
     // Steppe (Bozkır) - 5 kart
     cards.addAll([
-      _buildCard(id++, "Bozkır Savaşçı", HeroElement.steppe, HeroRole.warrior, 38, 12, 45),
-      _buildCard(id++, "Steppe Cini", HeroElement.steppe, HeroRole.warrior, 36, 12, 42),
-      _buildCard(id++, "Bozkır Sipahi", HeroElement.steppe, HeroRole.tank, 18, 20, 48),
-      _buildCard(id++, "Steppe Koruma", HeroElement.steppe, HeroRole.tank, 16, 22, 50),
-      _buildCard(id++, "Bozkır Şamani", HeroElement.steppe, HeroRole.support, 14, 10, 65),
+      _buildCard(id++, "Bozkır Savaşçı", HeroElement.steppe, HeroRole.warrior, 38, 12, 245),
+      _buildCard(id++, "Steppe Cini", HeroElement.steppe, HeroRole.warrior, 36, 12, 242),
+      _buildCard(id++, "Bozkır Sipahi", HeroElement.steppe, HeroRole.tank, 18, 20, 248),
+      _buildCard(id++, "Steppe Koruma", HeroElement.steppe, HeroRole.tank, 16, 22, 250),
+      _buildCard(id++, "Bozkır Şamani", HeroElement.steppe, HeroRole.support, 14, 10, 265),
     ]);
 
     return cards;
@@ -265,7 +265,7 @@ class BattleCubit extends Cubit<BattleState> {
     final xp = Random().nextInt(5000);
     final level = 1 + (xp ~/ 1000);
     final levelMultiplier = 1 + level * 0.1;
-    final startingHealth = (baseCp * 10 * levelMultiplier).round();
+    final startingHealth = (baseCp * levelMultiplier).round();
 
     return HeroCardEntity(
       id: "card_$id",
@@ -274,7 +274,7 @@ class BattleCubit extends Cubit<BattleState> {
       element: element,
       role: role,
       xp: xp,
-      cp: baseCp * 10,
+      cp: baseCp,
       health: startingHealth,
       attackPower: attackPower,
       defensePower: defensePower,
