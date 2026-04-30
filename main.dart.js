@@ -24736,7 +24736,7 @@ $S:1}
 A.ajK.prototype={
 $1(a){var s=A.cL().b
 s=s==null?null:s.canvasKitBaseUrl
-return(s==null?"https://www.gstatic.com/flutter-canvaskit/59aa584fdf100e6c78c785d8a5b565d1de4b48ab/":s)+a},
+return(s==null?"https://www.gstatic.com/flutter-canvaskit/42d3d75a56efe1a2e9902f52dc8006099c45d937/":s)+a},
 $S:102}
 A.Ic.prototype={
 gu(a){var s=this.a
@@ -76913,12 +76913,12 @@ HU(){var s,r,q=this,p=null
 q.iB(B.zQ)
 s=t.Xn
 r=A.c([],s)
-B.b.M(r,A.c([q.c8(0,"Ate\u015f Ba\u015fkan\u0131",B.c2,B.b5,38,12,45),q.c8(1,"Ate\u015f Aslan\u0131",B.c2,B.b5,36,12,42),q.c8(2,"Ate\u015f Sipahi",B.c2,B.b6,18,20,48),q.c8(3,"Ate\u015f Koruma",B.c2,B.b6,16,22,50),q.c8(4,"Ate\u015f \u015eamani",B.c2,B.d7,14,10,65)],s))
-B.b.M(r,A.c([q.c8(5,"Su Cini",B.cr,B.b5,38,12,45),q.c8(6,"Bal\u0131k Prens",B.cr,B.b5,36,12,42),q.c8(7,"Su Sipahi",B.cr,B.b6,18,20,48),q.c8(8,"Su Perisi",B.cr,B.b6,16,22,50),q.c8(9,"Su \u015eamani",B.cr,B.d7,14,10,65)],s))
-B.b.M(r,A.c([q.c8(10,"R\xfczgar \u015eah\u0131",B.cq,B.b5,38,12,45),q.c8(11,"F\u0131rt\u0131na Cini",B.cq,B.b5,36,12,42),q.c8(12,"Hava Sipahi",B.cq,B.b6,18,20,48),q.c8(13,"Hava Koruma",B.cq,B.b6,16,22,50),q.c8(14,"Hava \u015eamani",B.cq,B.d7,14,10,65)],s))
-B.b.M(r,A.c([q.c8(15,"Orman Cini",B.bI,B.b5,38,12,45),q.c8(16,"A\u011fa\xe7 Sat\u0131r\u0131",B.bI,B.b5,36,12,42),q.c8(17,"Orman Sipahi",B.bI,B.b6,18,20,48),q.c8(18,"A\u011fa\xe7 Perisi",B.bI,B.b6,16,22,50),q.c8(19,"Orman \u015eamani",B.bI,B.d7,14,10,65)],s))
-B.b.M(r,A.c([q.c8(20,"Karanl\u0131k Sava\u015f\xe7\u0131",B.e8,B.b5,38,12,45),q.c8(21,"G\xf6lge Alp",B.e8,B.b5,36,12,42),q.c8(22,"G\xf6lge Sipahi",B.e8,B.b6,18,20,48),q.c8(23,"Karanl\u0131k Koruma",B.e8,B.b6,16,22,50),q.c8(24,"Karanl\u0131k \u015eamani",B.e8,B.d7,14,10,65)],s))
-B.b.M(r,A.c([q.c8(25,"Bozk\u0131r Sava\u015f\xe7\u0131",B.bH,B.b5,38,12,45),q.c8(26,"Steppe Cini",B.bH,B.b5,36,12,42),q.c8(27,"Bozk\u0131r Sipahi",B.bH,B.b6,18,20,48),q.c8(28,"Steppe Koruma",B.bH,B.b6,16,22,50),q.c8(29,"Bozk\u0131r \u015eamani",B.bH,B.d7,14,10,65)],s))
+B.b.M(r,A.c([q.c8(0,"Ate\u015f Ba\u015fkan\u0131",B.c2,B.b5,38,12,245),q.c8(1,"Ate\u015f Aslan\u0131",B.c2,B.b5,36,12,242),q.c8(2,"Ate\u015f Sipahi",B.c2,B.b6,18,20,248),q.c8(3,"Ate\u015f Koruma",B.c2,B.b6,16,22,250),q.c8(4,"Ate\u015f \u015eamani",B.c2,B.d7,14,10,265)],s))
+B.b.M(r,A.c([q.c8(5,"Su Cini",B.cr,B.b5,38,12,245),q.c8(6,"Bal\u0131k Prens",B.cr,B.b5,36,12,242),q.c8(7,"Su Sipahi",B.cr,B.b6,18,20,248),q.c8(8,"Su Perisi",B.cr,B.b6,16,22,250),q.c8(9,"Su \u015eamani",B.cr,B.d7,14,10,265)],s))
+B.b.M(r,A.c([q.c8(10,"R\xfczgar \u015eah\u0131",B.cq,B.b5,38,12,245),q.c8(11,"F\u0131rt\u0131na Cini",B.cq,B.b5,36,12,242),q.c8(12,"Hava Sipahi",B.cq,B.b6,18,20,248),q.c8(13,"Hava Koruma",B.cq,B.b6,16,22,250),q.c8(14,"Hava \u015eamani",B.cq,B.d7,14,10,265)],s))
+B.b.M(r,A.c([q.c8(15,"Orman Cini",B.bI,B.b5,38,12,245),q.c8(16,"A\u011fa\xe7 Sat\u0131r\u0131",B.bI,B.b5,36,12,242),q.c8(17,"Orman Sipahi",B.bI,B.b6,18,20,248),q.c8(18,"A\u011fa\xe7 Perisi",B.bI,B.b6,16,22,250),q.c8(19,"Orman \u015eamani",B.bI,B.d7,14,10,265)],s))
+B.b.M(r,A.c([q.c8(20,"Karanl\u0131k Sava\u015f\xe7\u0131",B.e8,B.b5,38,12,245),q.c8(21,"G\xf6lge Alp",B.e8,B.b5,36,12,242),q.c8(22,"G\xf6lge Sipahi",B.e8,B.b6,18,20,248),q.c8(23,"Karanl\u0131k Koruma",B.e8,B.b6,16,22,250),q.c8(24,"Karanl\u0131k \u015eamani",B.e8,B.d7,14,10,265)],s))
+B.b.M(r,A.c([q.c8(25,"Bozk\u0131r Sava\u015f\xe7\u0131",B.bH,B.b5,38,12,245),q.c8(26,"Steppe Cini",B.bH,B.b5,36,12,242),q.c8(27,"Bozk\u0131r Sipahi",B.bH,B.b6,18,20,248),q.c8(28,"Steppe Koruma",B.bH,B.b6,16,22,250),q.c8(29,"Bozk\u0131r \u015eamani",B.bH,B.d7,14,10,265)],s))
 B.b.Wq(r)
 s=t.bO
 q.iB(new A.ha(A.fq(r,0,p,s).pA(0,3).dS(0),A.fq(r,3,p,s).pA(0,3).dS(0),1,!0,B.d9,p,p,A.c(["Sava\u015f ba\u015flad\u0131! Kut seninle olsun."],t.s),B.Jl,B.Jm))},
@@ -77011,8 +77011,8 @@ m=A.c(["Yeni Tur ba\u015flad\u0131 ("+(n.a(p.c).c+1)+")"],m)
 B.b.M(m,n.a(p.c).w)
 p.iB(a.aff(o,m,a.c+1,!0))}case 1:return A.P(q,r)}})
 return A.Q($async$nY,r)},
-c8(a,b,c,d,e,f,g){var s=B.f2.xL(5000),r=g*10
-return new A.fL("card_"+a,b,"T\xfcrk mitolojisinin efsanevi kahraman\u0131.",c,d,s,r,B.c.ak(r*(1+(1+B.i.dv(s,1000))*0.1)),e,f,"\ud83c\udfb4")}}
+c8(a,b,c,d,e,f,g){var s=B.f2.xL(5000)
+return new A.fL("card_"+a,b,"T\xfcrk mitolojisinin efsanevi kahraman\u0131.",c,d,s,g,B.c.ak(g*(1+(1+B.i.dv(s,1000))*0.1)),e,f,"\ud83c\udfb4")}}
 A.Vu.prototype={
 $1(a){return a.w<=0},
 $S:51}
