@@ -62,6 +62,33 @@ enum HeroRole {
   String get label => name[0].toUpperCase() + name.substring(1);
 }
 
+/// Töz Type defines what kind of effect the skill card will have.
+enum SkillType {
+  heal,
+  attackBuff,
+  defenseBuff,
+}
+
+/// SkillEntity represents a skill card (Töz) in the game.
+@immutable
+class SkillEntity {
+  final String id;
+  final String name;
+  final String description;
+  final int cost; // Required Kut to use
+  final SkillType type;
+  final int value; // Heal amount, Attack Buff amount, etc.
+
+  const SkillEntity({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.cost,
+    required this.type,
+    required this.value,
+  });
+}
+
 /// HeroCardEntity represents a hero card in the "Kam: Kut'un Doğuşu" universe.
 @immutable
 class HeroCardEntity {
@@ -76,6 +103,10 @@ class HeroCardEntity {
   final int attackPower;
   final int defensePower;
   final String imageUrl;
+  final int kut;
+  final int bonusAttack;
+  final int bonusDefense;
+  final List<SkillEntity> skillCards;
 
   const HeroCardEntity({
     required this.id,
@@ -89,6 +120,10 @@ class HeroCardEntity {
     required this.attackPower,
     required this.defensePower,
     required this.imageUrl,
+    this.kut = 0,
+    this.bonusAttack = 0,
+    this.bonusDefense = 0,
+    this.skillCards = const [],
   });
 
   /// Returns true if the hero is still able to fight.
@@ -101,10 +136,10 @@ class HeroCardEntity {
   double get levelMultiplier => 1 + level * 0.1;
 
   /// Current attack value used in battle and UI display.
-  int get currentAttackPower => (attackPower * levelMultiplier).round();
+  int get currentAttackPower => (attackPower * levelMultiplier).round() + bonusAttack;
 
   /// Current defense value used in battle and UI display.
-  int get currentDefensePower => (defensePower * levelMultiplier).round();
+  int get currentDefensePower => (defensePower * levelMultiplier).round() + bonusDefense;
 
   /// Current maximum health pool derived from CP and level.
   int get currentCp => (cp * levelMultiplier).round();
@@ -132,6 +167,10 @@ class HeroCardEntity {
     int? health,
     int? attackPower,
     int? defensePower,
+    int? kut,
+    int? bonusAttack,
+    int? bonusDefense,
+    List<SkillEntity>? skillCards,
   }) {
     return HeroCardEntity(
       id: id,
@@ -145,6 +184,10 @@ class HeroCardEntity {
       attackPower: attackPower ?? this.attackPower,
       defensePower: defensePower ?? this.defensePower,
       imageUrl: imageUrl,
+      kut: kut ?? this.kut,
+      bonusAttack: bonusAttack ?? this.bonusAttack,
+      bonusDefense: bonusDefense ?? this.bonusDefense,
+      skillCards: skillCards ?? this.skillCards,
     );
   }
 }

@@ -75,12 +75,23 @@ class BattleCubit extends Cubit<BattleState> {
     final damage = max(1, rawDamage - defenseReduction);
     final newHealth = (target.health - damage).clamp(0, target.currentCp).toDouble();
 
+    int earnedKut = 0;
+    if (newHealth <= 0) {
+      earnedKut = 2; // Düşman öldürülürse +2 Kut
+    }
+
     // Düşman takımını güncelle
     final updatedEnemyTeam = List<HeroCardEntity>.from(currentState.enemyTeam);
     updatedEnemyTeam[currentState.selectedTargetIndex!] = target.copyWith(health: newHealth.toInt());
 
+    // Oyuncu takımını güncelle (Kut için)
+    final updatedPlayerTeam = List<HeroCardEntity>.from(currentState.playerTeam);
+    if (earnedKut > 0) {
+       updatedPlayerTeam[currentState.selectedHeroIndex!] = attacker.copyWith(kut: attacker.kut + earnedKut);
+    }
+
     // Log ve İstatistikler
-    final newLog = "${attacker.name}, ${target.name} birimine $damage hasar verdi!";
+    final newLog = "${attacker.name}, ${target.name} birimine $damage hasar verdi!" + (earnedKut > 0 ? " (+2 Kut kazandı!)" : "");
     final updatedLogs = List<String>.from(currentState.battleLogs)..insert(0, newLog);
 
     final updatedDamageMap = Map<String, double>.from(currentState.totalDamageDealt);
@@ -90,6 +101,7 @@ class BattleCubit extends Cubit<BattleState> {
     final updatedActedIds = List<String>.from(currentState.actedHeroIds)..add(attacker.id);
 
     final nextState = currentState.copyWith(
+      playerTeam: updatedPlayerTeam,
       enemyTeam: updatedEnemyTeam,
       battleLogs: updatedLogs,
       actedHeroIds: updatedActedIds,
@@ -98,6 +110,56 @@ class BattleCubit extends Cubit<BattleState> {
     );
 
     _processTurnEnd(nextState);
+  }
+
+  /// Seçilen kahraman için Töz kartı kullan
+  void useSkill(int heroIndex, SkillEntity skill) {
+    if (state is! BattleInProgress) return;
+    final currentState = state as BattleInProgress;
+    
+    // Sıra oyuncuda değilse seçim yapılamaz
+    if (!currentState.isPlayerTurn) return;
+    
+    // Zaten kullanıldı mı kontrolü
+    if (currentState.usedSkillIds.contains(skill.id)) return;
+    
+    final hero = currentState.playerTeam[heroIndex];
+    if (!hero.isAlive) return;
+    
+    // Kut yeterli mi kontrolü
+    if (hero.kut < skill.cost) return;
+    
+    // Töz etkisini uygula
+    HeroCardEntity updatedHero = hero.copyWith(kut: hero.kut - skill.cost);
+    String logMsg = "";
+    
+    switch (skill.type) {
+      case SkillType.heal:
+        final newHealth = (updatedHero.health + skill.value).clamp(0, updatedHero.currentCp);
+        updatedHero = updatedHero.copyWith(health: newHealth.toInt());
+        logMsg = "${hero.name}, ${skill.name} kullandı! ${skill.value} Can yeniledi.";
+        break;
+      case SkillType.attackBuff:
+        updatedHero = updatedHero.copyWith(bonusAttack: updatedHero.bonusAttack + skill.value);
+        logMsg = "${hero.name}, ${skill.name} kullandı! Saldırı gücü ${skill.value} arttı.";
+        break;
+      case SkillType.defenseBuff:
+        updatedHero = updatedHero.copyWith(bonusDefense: updatedHero.bonusDefense + skill.value);
+        logMsg = "${hero.name}, ${skill.name} kullandı! Savunma gücü ${skill.value} arttı.";
+        break;
+    }
+    
+    final updatedPlayerTeam = List<HeroCardEntity>.from(currentState.playerTeam);
+    updatedPlayerTeam[heroIndex] = updatedHero;
+    
+    final updatedUsedSkillIds = List<String>.from(currentState.usedSkillIds)..add(skill.id);
+    final updatedLogs = List<String>.from(currentState.battleLogs)..insert(0, logMsg);
+    
+    emit(currentState.copyWith(
+      playerTeam: updatedPlayerTeam,
+      usedSkillIds: updatedUsedSkillIds,
+      battleLogs: updatedLogs,
+    ));
   }
 
   /// Tur sonu kontrollerini yapar (Kazanma/Sıra Değişimi)
@@ -180,11 +242,21 @@ class BattleCubit extends Cubit<BattleState> {
     // Düşman turu bitti, yeni tura geç ve oyuncuya ver
     await Future.delayed(const Duration(milliseconds: 500));
     if (state is BattleInProgress) {
-      final nextTurnState = (state as BattleInProgress).copyWith(
+      var current = state as BattleInProgress;
+      // Yeni turda oyuncunun yaşayan karakterlerine +1 Kut
+      final updatedPlayerTeam = current.playerTeam.map((p) {
+        if (p.isAlive) {
+          return p.copyWith(kut: p.kut + 1);
+        }
+        return p;
+      }).toList();
+
+      final nextTurnState = current.copyWith(
+        playerTeam: updatedPlayerTeam,
         isPlayerTurn: true,
-        currentTurn: (state as BattleInProgress).currentTurn + 1,
+        currentTurn: current.currentTurn + 1,
         actedHeroIds: [],
-        battleLogs: ["Yeni Tur başladı (${(state as BattleInProgress).currentTurn + 1})", ...(state as BattleInProgress).battleLogs],
+        battleLogs: ["Yeni Tur başladı (${current.currentTurn + 1}). Tüm canlı kahramanlar +1 Kut kazandı!", ...current.battleLogs],
       );
       emit(nextTurnState);
     }
@@ -267,6 +339,16 @@ class BattleCubit extends Cubit<BattleState> {
     final levelMultiplier = 1 + level * 0.1;
     final startingHealth = (baseCp * levelMultiplier).round();
 
+    // Rastgele Töz kartları ata
+    final randomSkills = [
+      SkillEntity(id: "skill_heal_$id", name: "Kut Şifası", description: "50 Can yeniler", cost: 1, type: SkillType.heal, value: 50),
+      SkillEntity(id: "skill_atk_$id", name: "Savaş Çığlığı", description: "Saldırı gücünü artırır (+10)", cost: 2, type: SkillType.attackBuff, value: 10),
+      SkillEntity(id: "skill_def_$id", name: "Demir Beden", description: "Savunmayı artırır (+10)", cost: 1, type: SkillType.defenseBuff, value: 10),
+      SkillEntity(id: "skill_heal2_$id", name: "Büyük Şifa", description: "100 Can yeniler", cost: 3, type: SkillType.heal, value: 100),
+      SkillEntity(id: "skill_atk2_$id", name: "Kanlı Hiddet", description: "Saldırı gücünü çok artırır (+25)", cost: 3, type: SkillType.attackBuff, value: 25),
+    ];
+    randomSkills.shuffle();
+
     return HeroCardEntity(
       id: "card_$id",
       name: name,
@@ -279,5 +361,7 @@ class BattleCubit extends Cubit<BattleState> {
       attackPower: attackPower,
       defensePower: defensePower,
       imageUrl: "🎴",
+      kut: 0,
+      skillCards: randomSkills.take(2).toList(),
     );
   }}

@@ -202,6 +202,16 @@ class KamCardWidget extends StatelessWidget {
                       "Lv ${card.level}",
                       style: TextStyle(color: card.isAlive ? Colors.purpleAccent : Colors.grey, fontSize: 8, fontWeight: FontWeight.bold),
                     ),
+                    if (!isEnemy && card.isAlive)
+                      Row(
+                        children: [
+                          const Icon(Icons.flash_on, size: 10, color: Colors.lightBlueAccent),
+                          Text(
+                            "${card.kut}",
+                            style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
                     Text(
                       "XP ${card.xp}",
                       style: TextStyle(color: card.isAlive ? Colors.white70 : Colors.grey, fontSize: 8, fontWeight: FontWeight.bold),

@@ -10,7 +10,7 @@ Karakterler savaş kazandıkça tecrübe puanları kazanırken aynı zamanda baz
 
 ## Savaş Mekaniği
 
-3x3 savaş alanına her iki oyuncu da karakter çıkartır ve savaşır. alanda bir tarafa ait karakter kalmaması durumunda savaş sonuçlanır. oyuncular elinde 5 karakter kartı ile oyuna başlar ve savaş alanında en fazla 3 karakter bulundurabilir. 
+3v3 savaş alanına her iki oyuncu da karakter çıkartır ve savaşır. alanda bir tarafa ait karakter kalmaması durumunda savaş sonuçlanır. oyuncular elinde 5 karakter kartı ile oyuna başlar ve savaş alanında en fazla 3 karakter bulundurabilir. 
 
 her turda oyuncular saldırı yapmayı veya alana karakter girdirmeyi deneyebilir ikisi aynı anda yapılamaz. her iki oyuncu da hamlesini kesinleştirdiğinde o turun savaşı başlar ve o zamana kadar kimse rakibinin ne yaptığını görmez.
 

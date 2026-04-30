@@ -48,7 +48,10 @@ class BattleView extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      // Sol: Savaş Alanı (3v3 Grid)
+                      // Sol Töz Paneli
+                      _buildLeftSidebar(context, state),
+
+                      // Orta: Savaş Alanı (3v3 Grid)
                       Expanded(
                         flex: 4,
                         child: Column(
@@ -149,6 +152,118 @@ class BattleView extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+
+  Widget _buildLeftSidebar(BuildContext context, BattleInProgress state) {
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.20,
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F172A),
+        border: Border(right: BorderSide(color: Colors.white10)),
+      ),
+      child: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(12.0),
+            child: Text(
+              "TÖZ YETENEKLERİ",
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.purpleAccent),
+            ),
+          ),
+          if (state.selectedHeroIndex == null)
+            const Expanded(
+              child: Center(
+                child: Text(
+                  "Bir kahraman seçin",
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+              ),
+            )
+          else ...[
+            Builder(
+              builder: (context) {
+                final heroIndex = state.selectedHeroIndex!;
+                final hero = state.playerTeam[heroIndex];
+                return Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(LucideIcons.zap, color: Colors.lightBlueAccent, size: 20),
+                        const SizedBox(width: 4),
+                        Text("Kut: ${hero.kut}", style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                );
+              },
+            ),
+            Expanded(
+              child: Builder(
+                builder: (context) {
+                  final heroIndex = state.selectedHeroIndex!;
+                  final hero = state.playerTeam[heroIndex];
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    itemCount: hero.skillCards.length,
+                    itemBuilder: (context, index) {
+                      final skill = hero.skillCards[index];
+                      final isUsed = state.usedSkillIds.contains(skill.id);
+                      final canAfford = hero.kut >= skill.cost;
+                      final isAvailable = !isUsed && canAfford && state.isPlayerTurn;
+
+                      return GestureDetector(
+                        onTap: isAvailable ? () {
+                          context.read<BattleCubit>().useSkill(heroIndex, skill);
+                        } : null,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isAvailable ? const Color(0xFF1E293B) : Colors.black38,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: isAvailable ? Colors.purpleAccent : Colors.white10),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(child: Text(skill.name, style: TextStyle(color: isAvailable ? Colors.white : Colors.white38, fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis)),
+                                  Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+                                    child: Text(skill.cost.toString(), style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(skill.description, style: TextStyle(color: isAvailable ? Colors.white70 : Colors.white24, fontSize: 10)),
+                              if (isUsed)
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 4),
+                                  child: Text("KULLANILDI", style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                                )
+                              else if (!canAfford && !isUsed)
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 4),
+                                  child: Text("YETERSİZ KUT", style: TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

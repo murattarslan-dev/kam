@@ -35,6 +35,9 @@ final class BattleInProgress extends BattleState {
   // İstatistik Takibi (Opsiyonel Detaylar)
   final Map<String, double> totalDamageDealt; // Kahraman ID bazlı toplam verilen hasar
   final Map<String, int> turnsSinceEffect;    // Buff/Debuff süre takibi için
+  
+  // Yetenek Takibi
+  final List<String> usedSkillIds; // Bu savaş boyunca kullanılmış Töz kartlarının ID'leri
 
   const BattleInProgress({
     required this.playerTeam,
@@ -47,6 +50,7 @@ final class BattleInProgress extends BattleState {
     this.battleLogs = const ["Savaş başladı!"],
     this.totalDamageDealt = const {},
     this.turnsSinceEffect = const {},
+    this.usedSkillIds = const [],
   });
 
   /// State'i güncellerken değişmeyen alanları korumamızı sağlayan yardımcı metod
@@ -61,6 +65,7 @@ final class BattleInProgress extends BattleState {
     List<String>? battleLogs,
     Map<String, double>? totalDamageDealt,
     Map<String, int>? turnsSinceEffect,
+    List<String>? usedSkillIds,
     bool clearSelection = false,
   }) {
     return BattleInProgress(
@@ -74,6 +79,7 @@ final class BattleInProgress extends BattleState {
       battleLogs: battleLogs ?? this.battleLogs,
       totalDamageDealt: totalDamageDealt ?? this.totalDamageDealt,
       turnsSinceEffect: turnsSinceEffect ?? this.turnsSinceEffect,
+      usedSkillIds: usedSkillIds ?? this.usedSkillIds,
     );
   }
 
