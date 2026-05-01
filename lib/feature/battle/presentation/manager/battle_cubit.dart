@@ -16,27 +16,50 @@ class BattleCubit extends Cubit<BattleState> {
     emit(const BattleLoading());
 
     try {
-      final allCards = await _firebaseService.fetchHeroes();
-
-      if (allCards.isEmpty) {
-        emit(const BattleError("Firestore'da kahraman bulunamadı!"));
+      final user = _firebaseService.currentUser;
+      if (user == null) {
+        emit(const BattleError("Oturum açılmış bir kullanıcı bulunamadı!"));
         return;
       }
 
-      final List<HeroCardEntity> gameCards = List.from(allCards);
-      gameCards.shuffle();
+      // 1. Oyuncunun kahramanlarını getir
+      final playerHeroes = await _firebaseService.fetchUserHeroes(user.uid);
+      if (playerHeroes.isEmpty) {
+        emit(const BattleError("Kullanıcıya ait kahraman bulunamadı!"));
+        return;
+      }
+
+      // 2. Düşman için tüm kahramanları getir ve rastgele 3 tane seç
+      final allGlobalHeroes = await _firebaseService.fetchHeroes();
+      if (allGlobalHeroes.length < 3) {
+        emit(const BattleError("Savaş için yeterli küresel kahraman bulunamadı!"));
+        return;
+      }
+
+      final random = Random();
+      final List<HeroCardEntity> enemyTeam = [];
+      final List<HeroCardEntity> pool = List.from(allGlobalHeroes)..shuffle(random);
       
-      final playerTeam = gameCards.take(3).toList();
-      final enemyTeam = gameCards.skip(3).take(3).toList();
+      for (var i = 0; i < 3; i++) {
+        // Düşman kahramanlarının XP'sini 2364 yap (Statları buna göre hesaplanacak)
+        final baseHero = pool[i];
+        final enemyHero = HeroCardEntity.fromMap(
+          baseHero.toMap()..['xp'] = 2364, 
+          skills: baseHero.skillCards,
+        );
+        enemyTeam.add(enemyHero);
+      }
+
+      final playerTeam = playerHeroes.take(3).toList();
 
       emit(BattleInProgress(
         playerTeam: playerTeam,
         enemyTeam: enemyTeam,
-        battleLogs: ["Savaş başladı! Firestore verileri yüklendi."],
+        battleLogs: ["Savaş başladı! Oyuncu ve düşman takımları hazır."],
       ));
     } catch (e) {
-      print("Firestore Error: $e");
-      emit(BattleError("Veri yükleme hatası: $e"));
+      print("Start Battle Error: $e");
+      emit(BattleError("Savaş başlatılamadı: $e"));
     }
   }
 
@@ -243,6 +266,7 @@ class BattleCubit extends Cubit<BattleState> {
   void _processTurnEnd(BattleInProgress nextState) {
     // 1. Kazanma Kontrolü
     if (nextState.enemyTeam.every((e) => !e.isAlive)) {
+      _finalizeXp(isVictory: true);
       emit(BattleResult(
         message: "ZAFER! Karanlık ordu bozguna uğratıldı.",
         isVictory: true,
@@ -327,6 +351,7 @@ class BattleCubit extends Cubit<BattleState> {
 
       // Kaybetme Kontrolü
       if (updatedPlayerTeam.every((p) => !p.isAlive)) {
+        _finalizeXp(isVictory: false);
         emit(const BattleResult(message: "MAĞLUBİYET... Kut elimizden kayıp gitti.", isVictory: false));
         return;
       }
@@ -352,6 +377,29 @@ class BattleCubit extends Cubit<BattleState> {
         battleLogs: ["Yeni Tur başladı (${current.currentTurn + 1}). Tüm canlı kahramanlar +1 Kut kazandı!", ...current.battleLogs],
       );
       emit(nextTurnState);
+    }
+  }
+
+  /// Savaş sonunda kahramanlara XP'lerini dağıtır
+  Future<void> _finalizeXp({required bool isVictory}) async {
+    if (state is! BattleInProgress) return;
+    final currentState = state as BattleInProgress;
+    final user = _firebaseService.currentUser;
+    if (user == null) return;
+
+    for (var hero in currentState.playerTeam) {
+      // 1. Verdiği hasar kadar XP
+      int damageXp = (currentState.totalDamageDealt[hero.id] ?? 0).round();
+      
+      // 2. Zafer bonusu
+      int victoryXp = isVictory ? 300 : 0;
+      
+      int totalGain = damageXp + victoryXp;
+      
+      if (totalGain > 0) {
+        // Firestore'u güncelle
+        await _firebaseService.updateHeroXp(user.uid, hero.id, totalGain);
+      }
     }
   }
 }

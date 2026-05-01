@@ -26,4 +26,8 @@ Future<void> setupLocator() async {
 
   // Firebase veya diğer harici servisler buraya gelecek.
   sl.registerLazySingleton<FirebaseService>(() => FirebaseService());
+  
+  // Geçici olarak statik giriş yap (Geliştirme aşaması için)
+  final firebaseService = sl<FirebaseService>();
+  await firebaseService.signInWithEmailAndPassword('kam@official.com', '123456');
 }

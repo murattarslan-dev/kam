@@ -298,43 +298,38 @@ class HeroCardEntity {
       'description': description,
       'element': element.name,
       'role': role.name,
-      'xp': xp,
-      'cp': cp,
-      'attackPower': attackPower,
-      'defensePower': defensePower,
+      'hp': cp, // UI holds cp as max health
+      'atk': attackPower,
+      'def': defensePower,
       'imageUrl': imageUrl,
-      'skillCards': skillCards.map((x) => x.toMap()).toList(),
     };
   }
 
-  factory HeroCardEntity.fromMap(Map<String, dynamic> map) {
-    final xp = map['xp'] as int;
-    final cp = map['cp'] as int;
+  factory HeroCardEntity.fromMap(Map<String, dynamic> map, {List<SkillEntity> skills = const []}) {
+    final xp = Random().nextInt(10000);
+    final hp = map['hp'] as int? ?? 100; // Yeni yapı: hp
     
-    // Mevcut seviyeye göre maksimum canı (currentCp) hesapla
+    // Mevcut seviyeye göre maksimum canı hesapla
     final level = 1 + (xp ~/ 1000);
     final levelMultiplier = 1 + level * 0.1;
-    final maxHealth = (cp * levelMultiplier).round();
+    final maxHealth = (hp * levelMultiplier).round();
 
     return HeroCardEntity(
-      id: map['id'] as String,
-      name: map['name'] as String,
-      description: map['description'] as String,
-      element: HeroElement.fromString(map['element'] as String),
-      role: HeroRole.fromString(map['role'] as String),
+      id: map['id'] as String? ?? '',
+      name: map['name'] as String? ?? 'Adsız Kahraman',
+      description: map['description'] as String? ?? '',
+      element: HeroElement.fromString(map['element'] as String? ?? 'steppe'),
+      role: HeroRole.fromString(map['role'] as String? ?? 'warrior'),
       xp: xp,
-      cp: cp,
-      health: maxHealth, // Savaş başında can full başlar
-      attackPower: map['attackPower'] as int,
-      defensePower: map['defensePower'] as int,
-      imageUrl: map['imageUrl'] as String,
+      cp: hp,
+      health: maxHealth,
+      attackPower: map['atk'] as int? ?? 10, // Yeni yapı: atk
+      defensePower: map['def'] as int? ?? 5,  // Yeni yapı: def
+      imageUrl: map['imageUrl'] as String? ?? '🎴',
       kut: 0,
       bonusAttack: 0,
       bonusDefense: 0,
-      skillCards: (map['skillCards'] as List<dynamic>?)
-              ?.map((x) => SkillEntity.fromMap(x as Map<String, dynamic>))
-              .toList() ??
-          const [],
+      skillCards: skills,
     );
   }
 }
