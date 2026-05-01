@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../manager/battle_cubit.dart';
 import '../manager/battle_state.dart';
 import '../widgets/card_widget.dart';
+import 'package:kam/core/util/responsive_helper.dart';
 
 class BattleScreen extends StatelessWidget {
   const BattleScreen({super.key});
@@ -247,7 +248,13 @@ class _BattleViewState extends State<BattleView> {
                     Column(
                       children: [
                         Expanded(flex: 3, child: _buildArena(context, state)),
-                        Expanded(flex: 1, child: _buildSidebar(context, state, isPortrait: true)),
+                        if (context.screenHeight > 700)
+                          Expanded(flex: 1, child: _buildSidebar(context, state, isPortrait: true))
+                        else
+                          SizedBox(
+                            height: 120,
+                            child: _buildSidebar(context, state, isPortrait: true),
+                          ),
                       ],
                     )
                   else
@@ -309,18 +316,34 @@ class _BattleViewState extends State<BattleView> {
         // Orta Alan: Savaş Efektleri, Butonlar ve Tur Bilgisi
         Expanded(
           child: Center(
-            child: Column(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (state.selectedHeroIndex != null && state.selectedTargetIndex != null)
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.redAccent,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.responsive(32.0, tablet: 48.0),
+                        vertical: context.responsive(16.0, tablet: 24.0),
+                      ),
+                      elevation: 8,
+                      shadowColor: Colors.redAccent.withValues(alpha: 0.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () => context.read<BattleCubit>().executePlayerAttack(),
-                    icon: const Icon(LucideIcons.swords, color: Colors.white),
-                    label: const Text("SALDIR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    icon: Icon(LucideIcons.swords, color: Colors.white, size: context.responsive(20.0, tablet: 24.0)),
+                    label: Text(
+                      "SALDIR",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: context.responsive(16.0, tablet: 20.0),
+                        letterSpacing: 2,
+                      ),
+                    ),
                   )
                 else
                   Text(
@@ -343,6 +366,7 @@ class _BattleViewState extends State<BattleView> {
             ),
           ),
         ),
+      ),
 
         // Oyuncu Takımı
         _buildTeamRow(context, state.playerTeam, false, state),
@@ -372,7 +396,7 @@ class _BattleViewState extends State<BattleView> {
         }
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          padding: EdgeInsets.symmetric(horizontal: context.responsive(2.0, tablet: 6.0)),
           child: Opacity(
             opacity: isAnimating ? 0.0 : (card.isAlive ? (hasActed ? 0.5 : 1.0) : 0.3),
             child: KamCardWidget(
@@ -403,15 +427,17 @@ class _BattleViewState extends State<BattleView> {
           backgroundColor: const Color(0xFF0F172A),
           title: Text("Töz'ü Açığa Çıkar - Kut: ${hero.kut}", style: const TextStyle(color: Colors.purpleAccent, fontSize: 16)),
           content: SizedBox(
-            width: double.maxFinite,
-            height: 300,
+            width: context.responsive(context.screenWidth * 0.9, tablet: 500.0),
+            height: context.responsive(context.screenHeight * 0.6, tablet: 400.0),
             child: ListView.builder(
+              padding: const EdgeInsets.only(top: 8),
               itemCount: hero.skillCards.length,
               itemBuilder: (itemContext, index) {
                 final skill = hero.skillCards[index];
                 final isUsed = state.usedSkillIds.contains(skill.id);
                 final canAfford = hero.kut >= skill.cost;
-                final isAvailable = !isUsed && canAfford && state.isPlayerTurn;
+                final isPrerequisiteMet = context.read<BattleCubit>().isSkillPrerequisiteMet(hero, skill);
+                final isAvailable = !isUsed && canAfford && isPrerequisiteMet && state.isPlayerTurn;
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
@@ -437,6 +463,17 @@ class _BattleViewState extends State<BattleView> {
                         ),
                         const SizedBox(height: 6),
                         Text(skill.description, style: TextStyle(color: isAvailable ? Colors.white70 : Colors.white24, fontSize: 12)),
+                        if (skill.prerequisite != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            skill.prerequisite!.getDescription(),
+                            style: TextStyle(
+                              color: isPrerequisiteMet ? Colors.greenAccent : Colors.redAccent,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -445,20 +482,23 @@ class _BattleViewState extends State<BattleView> {
                               const Text("KULLANILDI", style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold))
                             else if (!canAfford)
                               const Text("YETERSİZ KUT", style: TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold))
+                            else if (!isPrerequisiteMet)
+                              const Text("KOŞUL SAĞLANMADI", style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold))
                             else
                               const SizedBox.shrink(),
                             if (isAvailable)
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.purpleAccent,
-                                  minimumSize: const Size(60, 30),
+                                  minimumSize: const Size(80, 44),
                                   padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
                                 onPressed: () {
                                   context.read<BattleCubit>().useSkill(heroIndex, skill);
                                   Navigator.pop(dContext);
                                 },
-                                child: const Text("KULLAN", style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
+                                child: Text("KULLAN", style: TextStyle(fontSize: context.responsive(12.0, tablet: 14.0), color: Colors.white, fontWeight: FontWeight.bold)),
                               ),
                           ],
                         ),
@@ -524,7 +564,7 @@ class _BattleViewState extends State<BattleView> {
                   child: Text(
                     log,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: context.responsive(11.0, tablet: 13.0),
                       color: isNew ? Colors.white : Colors.white38,
                     ),
                   ),

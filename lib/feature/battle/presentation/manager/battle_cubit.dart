@@ -165,6 +165,9 @@ class BattleCubit extends Cubit<BattleState> {
     // Kut yeterli mi kontrolü
     if (hero.kut < skill.cost) return;
     
+    // Önkoşul kontrolü
+    if (!isSkillPrerequisiteMet(hero, skill)) return;
+    
     // Töz etkisini uygula
     HeroCardEntity updatedHero = hero.copyWith(kut: hero.kut - skill.cost);
     String logMsg = "";
@@ -196,6 +199,31 @@ class BattleCubit extends Cubit<BattleState> {
       usedSkillIds: updatedUsedSkillIds,
       battleLogs: updatedLogs,
     ));
+  }
+
+  /// Töz kartının önkoşullarının sağlanıp sağlanmadığını kontrol eder
+  bool isSkillPrerequisiteMet(HeroCardEntity hero, SkillEntity skill) {
+    final prerequisite = skill.prerequisite;
+    if (prerequisite == null) return true;
+
+    if (state is! BattleInProgress) return false;
+    final currentState = state as BattleInProgress;
+
+    final targetTeam = prerequisite.target == PrerequisiteTarget.teammate
+        ? currentState.playerTeam
+        : currentState.enemyTeam;
+
+    int count = 0;
+    for (var member in targetTeam) {
+      // Kendini takım arkadaşı olarak sayma (isteğe bağlı, genelde "arkadaş" dendiğinde başkası kastedilir)
+      if (prerequisite.target == PrerequisiteTarget.teammate && member.id == hero.id) continue;
+      
+      if (member.isAlive && prerequisite.requiredElements.contains(member.element)) {
+        count++;
+      }
+    }
+
+    return count >= prerequisite.minCount;
   }
 
   /// Tur sonu kontrollerini yapar (Kazanma/Sıra Değişimi)
@@ -398,6 +426,86 @@ class BattleCubit extends Cubit<BattleState> {
       SkillEntity(id: "toz_def_$id", name: "Demir Beden", description: "Savunmayı artırır (+10)", cost: 1, type: SkillType.defenseBuff, value: 10),
       SkillEntity(id: "toz_heal2_$id", name: "Büyük Şifa", description: "100 Can yeniler", cost: 3, type: SkillType.heal, value: 100),
       SkillEntity(id: "toz_atk2_$id", name: "Kanlı Hiddet", description: "Saldırı gücünü çok artırır (+25)", cost: 3, type: SkillType.attackBuff, value: 25),
+      
+      // Önkoşullu Yetenekler
+      if (element == HeroElement.fire)
+        SkillEntity(
+          id: "toz_fire_combo_$id", 
+          name: "Harlama", 
+          description: "Rüzgar varsa alevi harlar! (+30 Saldırı)", 
+          cost: 2, 
+          type: SkillType.attackBuff, 
+          value: 30,
+          prerequisite: const SkillPrerequisite(
+            target: PrerequisiteTarget.teammate,
+            requiredElements: [HeroElement.wind],
+          ),
+        ),
+      if (element == HeroElement.water)
+        SkillEntity(
+          id: "toz_water_combo_$id", 
+          name: "Buz Tutma", 
+          description: "Karanlık rakibe karşı buz kalkanı (+20 Savunma)", 
+          cost: 2, 
+          type: SkillType.defenseBuff, 
+          value: 20,
+          prerequisite: const SkillPrerequisite(
+            target: PrerequisiteTarget.opponent,
+            requiredElements: [HeroElement.dark],
+          ),
+        ),
+      if (element == HeroElement.wind)
+        SkillEntity(
+          id: "toz_wind_combo_$id", 
+          name: "Fırtına Şifası", 
+          description: "Su elementi varsa fırtına d Diner (+80 Şifa)", 
+          cost: 2, 
+          type: SkillType.heal, 
+          value: 80,
+          prerequisite: const SkillPrerequisite(
+            target: PrerequisiteTarget.teammate,
+            requiredElements: [HeroElement.water],
+          ),
+        ),
+      if (element == HeroElement.dark)
+        SkillEntity(
+          id: "toz_dark_combo_$id", 
+          name: "Ruh Sömürüsü", 
+          description: "Orman rakibi varsa ruhlarını çeker (+15 Saldırı)", 
+          cost: 2, 
+          type: SkillType.attackBuff, 
+          value: 15,
+          prerequisite: const SkillPrerequisite(
+            target: PrerequisiteTarget.opponent,
+            requiredElements: [HeroElement.forest],
+          ),
+        ),
+      if (element == HeroElement.forest)
+        SkillEntity(
+          id: "toz_forest_combo_$id", 
+          name: "Toprak Ana", 
+          description: "Bozkır arkadaşı varsa kök salar (+25 Savunma)", 
+          cost: 2, 
+          type: SkillType.defenseBuff, 
+          value: 25,
+          prerequisite: const SkillPrerequisite(
+            target: PrerequisiteTarget.teammate,
+            requiredElements: [HeroElement.steppe],
+          ),
+        ),
+      if (element == HeroElement.steppe)
+        SkillEntity(
+          id: "toz_steppe_combo_$id", 
+          name: "Bozkırın Gücü", 
+          description: "Ateş arkadaşı varsa hararetlenir (+40 Şifa)", 
+          cost: 2, 
+          type: SkillType.heal, 
+          value: 40,
+          prerequisite: const SkillPrerequisite(
+            target: PrerequisiteTarget.teammate,
+            requiredElements: [HeroElement.fire],
+          ),
+        ),
     ];
     randomSkill.shuffle();
 

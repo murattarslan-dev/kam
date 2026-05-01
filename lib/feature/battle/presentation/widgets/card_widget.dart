@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../domain/entities/hero_entities.dart';
+import 'package:kam/core/util/responsive_helper.dart';
 
 class KamCardWidget extends StatelessWidget {
   final HeroCardEntity card;
@@ -23,8 +24,16 @@ class KamCardWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Kartın seçim durumuna göre animasyon değerleri
-    final double scale = isSelected && card.isAlive ? 1.1 : 1.0;
-    final double translateY = isSelected && card.isAlive ? -15.0 : 0.0;
+    final double scale = isSelected && card.isAlive ? 1.08 : 1.0;
+    final double translateY = isSelected && card.isAlive ? -context.scaleH(10) : 0.0;
+
+    // Responsive boyutlar
+    final double cardWidth = context.responsive(
+      context.screenWidth * 0.28, // Mobil için ekranın %28'i
+      tablet: 140.0,
+      desktop: 160.0,
+    );
+    final double cardHeight = cardWidth * 1.6; // Altın oran benzeri oran (1.6)
 
     // Sağlık oranı (0.0 ile 1.0 arasında)
     final double hpRatio = (card.health / card.currentCp).clamp(0.0, 1.0);
@@ -39,9 +48,12 @@ class KamCardWidget extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutBack,
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        width: 130,
-        height: 205, // Buton için ekstra alan
+        margin: EdgeInsets.symmetric(
+          horizontal: context.responsive(4.0, tablet: 8.0),
+          vertical: context.responsive(8.0, tablet: 12.0),
+        ),
+        width: cardWidth,
+        height: cardHeight + (isSelected && card.isAlive ? 20 : 0), // Seçili olduğunda buton alanı ekle
         transform: Matrix4.identity()
           ..scale(scale, scale, 1.0)
           ..translate(0.0, translateY, 0.0),
@@ -89,7 +101,7 @@ class KamCardWidget extends StatelessWidget {
                             : const ColorFilter.mode(Colors.grey, BlendMode.saturation),
                         child: Stack(
                           children: [
-                            _buildHeader(),
+                            _buildHeader(context),
                             Center(
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 40),
@@ -109,7 +121,7 @@ class KamCardWidget extends StatelessWidget {
                               bottom: 0,
                               left: 0,
                               right: 0,
-                              child: _buildBottomPanel(hpRatio),
+                              child: _buildBottomPanel(context, hpRatio),
                             ),
                           ],
                         ),
@@ -156,19 +168,20 @@ class KamCardWidget extends StatelessWidget {
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.purpleAccent,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      minimumSize: const Size(80, 36),
+                      tapTargetSize: MaterialTapTargetSize.padded,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                     onPressed: onTozPressed,
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.auto_awesome, size: 12, color: Colors.white),
-                        SizedBox(width: 4),
+                        const Icon(Icons.auto_awesome, size: 14, color: Colors.white),
+                        const SizedBox(width: 6),
                         Text("TÖZ KULLAN",
                             style: TextStyle(
-                                fontSize: 9,
+                                fontSize: context.responsive(10.0, tablet: 11.0),
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold)),
                       ],
@@ -187,7 +200,7 @@ class KamCardWidget extends StatelessWidget {
     return isSelected ? Colors.yellowAccent : Colors.white24;
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Stack(
@@ -209,7 +222,7 @@ class KamCardWidget extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: card.isAlive ? Colors.white : Colors.grey,
-                  fontSize: 9,
+                  fontSize: context.responsive(8.0, tablet: 10.0),
                   fontWeight: FontWeight.bold,
                   decoration: card.isAlive ? null : TextDecoration.lineThrough,
                   shadows: const [Shadow(blurRadius: 4, color: Colors.black)],
@@ -230,7 +243,7 @@ class KamCardWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomPanel(double hpRatio) {
+  Widget _buildBottomPanel(BuildContext context, double hpRatio) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       decoration: BoxDecoration(
@@ -267,7 +280,7 @@ class KamCardWidget extends StatelessWidget {
                             const Icon(Icons.flash_on, size: 10, color: Colors.lightBlueAccent),
                             Text(
                               "${card.kut}",
-                              style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: Colors.lightBlueAccent, fontSize: context.responsive(10.0, tablet: 12.0), fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),

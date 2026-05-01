@@ -69,6 +69,32 @@ enum SkillType {
   defenseBuff,
 }
 
+/// PrerequisiteTarget defines who to check for elemental requirements.
+enum PrerequisiteTarget {
+  teammate,
+  opponent,
+}
+
+/// SkillPrerequisite represents the elemental requirements for a skill.
+@immutable
+class SkillPrerequisite {
+  final PrerequisiteTarget target;
+  final List<HeroElement> requiredElements;
+  final int minCount;
+
+  const SkillPrerequisite({
+    required this.target,
+    required this.requiredElements,
+    this.minCount = 1,
+  });
+
+  String getDescription() {
+    final elementNames = requiredElements.map((e) => e.label).join(", ");
+    final targetName = target == PrerequisiteTarget.teammate ? "Takım Arkadaşı" : "Rakip";
+    return "Gereksinim: $elementNames ($targetName)";
+  }
+}
+
 /// SkillEntity represents a skill card (Töz) in the game.
 @immutable
 class SkillEntity {
@@ -78,6 +104,7 @@ class SkillEntity {
   final int cost; // Required Kut to use
   final SkillType type;
   final int value; // Heal amount, Attack Buff amount, etc.
+  final SkillPrerequisite? prerequisite;
 
   const SkillEntity({
     required this.id,
@@ -86,6 +113,7 @@ class SkillEntity {
     required this.cost,
     required this.type,
     required this.value,
+    this.prerequisite,
   });
 }
 
