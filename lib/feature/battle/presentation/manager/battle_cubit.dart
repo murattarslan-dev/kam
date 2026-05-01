@@ -3,26 +3,41 @@ import 'dart:math';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../battle/domain/entities/hero_entities.dart';
 import 'battle_state.dart';
+import '../../../../core/di/injection.dart';
+import '../../../../core/firebase/firebase_service.dart';
 
 class BattleCubit extends Cubit<BattleState> {
+  final FirebaseService _firebaseService = sl<FirebaseService>();
+
   BattleCubit() : super(const BattleInitial());
 
-  /// 3v3 Savaşı başlatan fonksiyon
-  void startBattle() {
+  /// Firestore'dan verileri çeker ve savaşı başlatır
+  Future<void> startBattle() async {
     emit(const BattleLoading());
 
-    // Kart havuzundan random takımları oluştur
-    final allCards = _getHeroCardPool();
-    allCards.shuffle();
+    try {
+      final allCards = await _firebaseService.fetchHeroes();
 
-    final playerTeam = allCards.skip(0).take(3).toList();
-    final enemyTeam = allCards.skip(3).take(3).toList();
+      if (allCards.isEmpty) {
+        emit(const BattleError("Firestore'da kahraman bulunamadı!"));
+        return;
+      }
 
-    emit(BattleInProgress(
-      playerTeam: playerTeam,
-      enemyTeam: enemyTeam,
-      battleLogs: ["Savaş başladı! Kut seninle olsun."],
-    ));
+      final List<HeroCardEntity> gameCards = List.from(allCards);
+      gameCards.shuffle();
+      
+      final playerTeam = gameCards.take(3).toList();
+      final enemyTeam = gameCards.skip(3).take(3).toList();
+
+      emit(BattleInProgress(
+        playerTeam: playerTeam,
+        enemyTeam: enemyTeam,
+        battleLogs: ["Savaş başladı! Firestore verileri yüklendi."],
+      ));
+    } catch (e) {
+      print("Firestore Error: $e");
+      emit(BattleError("Veri yükleme hatası: $e"));
+    }
   }
 
   /// Bir kahramanı seçme veya hedef belirleme
@@ -58,8 +73,6 @@ class BattleCubit extends Cubit<BattleState> {
       }
     }
   }
-
-
 
   /// Oyuncu saldırısını başlatır (Animasyonu tetikler)
   void executePlayerAttack() {
@@ -341,187 +354,4 @@ class BattleCubit extends Cubit<BattleState> {
       emit(nextTurnState);
     }
   }
-
-  /// 30 karakterlik mock kart havuzu
-  List<HeroCardEntity> _getHeroCardPool() {
-    List<HeroCardEntity> cards = [];
-    int id = 0;
-
-    // Fire (Ateş) - 5 kart
-    cards.addAll([
-      _buildCard(id++, "Ateş Başkanı", HeroElement.fire, HeroRole.warrior, 38, 12, 145),
-      _buildCard(id++, "Ateş Aslanı", HeroElement.fire, HeroRole.warrior, 36, 12, 142),
-      _buildCard(id++, "Ateş Sipahi", HeroElement.fire, HeroRole.tank, 18, 20, 148),
-      _buildCard(id++, "Ateş Koruma", HeroElement.fire, HeroRole.tank, 16, 22, 150),
-      _buildCard(id++, "Ateş Şamani", HeroElement.fire, HeroRole.support, 14, 10, 165),
-    ]);
-
-    // Water (Su) - 5 kart
-    cards.addAll([
-      _buildCard(id++, "Su Cini", HeroElement.water, HeroRole.warrior, 38, 12, 145),
-      _buildCard(id++, "Balık Prens", HeroElement.water, HeroRole.warrior, 36, 12, 142),
-      _buildCard(id++, "Su Sipahi", HeroElement.water, HeroRole.tank, 18, 20, 148),
-      _buildCard(id++, "Su Perisi", HeroElement.water, HeroRole.tank, 16, 22, 150),
-      _buildCard(id++, "Su Şamani", HeroElement.water, HeroRole.support, 14, 10, 165),
-    ]);
-
-    // Wind (Rüzgar) - 5 kart
-    cards.addAll([
-      _buildCard(id++, "Rüzgar Şahı", HeroElement.wind, HeroRole.warrior, 38, 12, 145),
-      _buildCard(id++, "Fırtına Cini", HeroElement.wind, HeroRole.warrior, 36, 12, 142),
-      _buildCard(id++, "Hava Sipahi", HeroElement.wind, HeroRole.tank, 18, 20, 148),
-      _buildCard(id++, "Hava Koruma", HeroElement.wind, HeroRole.tank, 16, 22, 150),
-      _buildCard(id++, "Hava Şamani", HeroElement.wind, HeroRole.support, 14, 10, 165),
-    ]);
-
-    // Forest (Orman) - 5 kart
-    cards.addAll([
-      _buildCard(id++, "Orman Cini", HeroElement.forest, HeroRole.warrior, 38, 12, 145),
-      _buildCard(id++, "Ağaç Satırı", HeroElement.forest, HeroRole.warrior, 36, 12, 142),
-      _buildCard(id++, "Orman Sipahi", HeroElement.forest, HeroRole.tank, 18, 20, 148),
-      _buildCard(id++, "Ağaç Perisi", HeroElement.forest, HeroRole.tank, 16, 22, 150),
-      _buildCard(id++, "Orman Şamani", HeroElement.forest, HeroRole.support, 14, 10, 165),
-    ]);
-
-    // Dark (Karanlık) - 5 kart
-    cards.addAll([
-      _buildCard(id++, "Karanlık Savaşçı", HeroElement.dark, HeroRole.warrior, 38, 12, 145),
-      _buildCard(id++, "Gölge Alp", HeroElement.dark, HeroRole.warrior, 36, 12, 142),
-      _buildCard(id++, "Gölge Sipahi", HeroElement.dark, HeroRole.tank, 18, 20, 148),
-      _buildCard(id++, "Karanlık Koruma", HeroElement.dark, HeroRole.tank, 16, 22, 150),
-      _buildCard(id++, "Karanlık Şamani", HeroElement.dark, HeroRole.support, 14, 10, 165),
-    ]);
-
-    // Steppe (Bozkır) - 5 kart
-    cards.addAll([
-      _buildCard(id++, "Bozkır Savaşçı", HeroElement.steppe, HeroRole.warrior, 38, 12, 145),
-      _buildCard(id++, "Steppe Cini", HeroElement.steppe, HeroRole.warrior, 36, 12, 142),
-      _buildCard(id++, "Bozkır Sipahi", HeroElement.steppe, HeroRole.tank, 18, 20, 148),
-      _buildCard(id++, "Steppe Koruma", HeroElement.steppe, HeroRole.tank, 16, 22, 150),
-      _buildCard(id++, "Bozkır Şamani", HeroElement.steppe, HeroRole.support, 14, 10, 165),
-    ]);
-
-    return cards;
-  }
-
-  /// Kart inşa yardımcısı
-  HeroCardEntity _buildCard(
-    int id,
-    String name,
-    HeroElement element,
-    HeroRole role,
-    int attackPower,
-    int defensePower,
-    int baseCp,
-  ) {
-    final xp = Random().nextInt(5000);
-    final level = 1 + (xp ~/ 1000);
-    final levelMultiplier = 1 + level * 0.1;
-    final startingHealth = (baseCp * levelMultiplier).round();
-
-    // Rastgele Töz kartları ata
-    final randomSkill = [
-      SkillEntity(id: "toz_heal_$id", name: "Kut Şifası", description: "50 Can yeniler", cost: 1, type: SkillType.heal, value: 50),
-      SkillEntity(id: "toz_atk_$id", name: "Savaş Çığlığı", description: "Saldırı gücünü artırır (+10)", cost: 2, type: SkillType.attackBuff, value: 10),
-      SkillEntity(id: "toz_def_$id", name: "Demir Beden", description: "Savunmayı artırır (+10)", cost: 1, type: SkillType.defenseBuff, value: 10),
-      SkillEntity(id: "toz_heal2_$id", name: "Büyük Şifa", description: "100 Can yeniler", cost: 3, type: SkillType.heal, value: 100),
-      SkillEntity(id: "toz_atk2_$id", name: "Kanlı Hiddet", description: "Saldırı gücünü çok artırır (+25)", cost: 3, type: SkillType.attackBuff, value: 25),
-      
-      // Önkoşullu Yetenekler
-      if (element == HeroElement.fire)
-        SkillEntity(
-          id: "toz_fire_combo_$id", 
-          name: "Harlama", 
-          description: "Rüzgar varsa alevi harlar! (+30 Saldırı)", 
-          cost: 2, 
-          type: SkillType.attackBuff, 
-          value: 30,
-          prerequisite: const SkillPrerequisite(
-            target: PrerequisiteTarget.teammate,
-            requiredElements: [HeroElement.wind],
-          ),
-        ),
-      if (element == HeroElement.water)
-        SkillEntity(
-          id: "toz_water_combo_$id", 
-          name: "Buz Tutma", 
-          description: "Karanlık rakibe karşı buz kalkanı (+20 Savunma)", 
-          cost: 2, 
-          type: SkillType.defenseBuff, 
-          value: 20,
-          prerequisite: const SkillPrerequisite(
-            target: PrerequisiteTarget.opponent,
-            requiredElements: [HeroElement.dark],
-          ),
-        ),
-      if (element == HeroElement.wind)
-        SkillEntity(
-          id: "toz_wind_combo_$id", 
-          name: "Fırtına Şifası", 
-          description: "Su elementi varsa fırtına d Diner (+80 Şifa)", 
-          cost: 2, 
-          type: SkillType.heal, 
-          value: 80,
-          prerequisite: const SkillPrerequisite(
-            target: PrerequisiteTarget.teammate,
-            requiredElements: [HeroElement.water],
-          ),
-        ),
-      if (element == HeroElement.dark)
-        SkillEntity(
-          id: "toz_dark_combo_$id", 
-          name: "Ruh Sömürüsü", 
-          description: "Orman rakibi varsa ruhlarını çeker (+15 Saldırı)", 
-          cost: 2, 
-          type: SkillType.attackBuff, 
-          value: 15,
-          prerequisite: const SkillPrerequisite(
-            target: PrerequisiteTarget.opponent,
-            requiredElements: [HeroElement.forest],
-          ),
-        ),
-      if (element == HeroElement.forest)
-        SkillEntity(
-          id: "toz_forest_combo_$id", 
-          name: "Toprak Ana", 
-          description: "Bozkır arkadaşı varsa kök salar (+25 Savunma)", 
-          cost: 2, 
-          type: SkillType.defenseBuff, 
-          value: 25,
-          prerequisite: const SkillPrerequisite(
-            target: PrerequisiteTarget.teammate,
-            requiredElements: [HeroElement.steppe],
-          ),
-        ),
-      if (element == HeroElement.steppe)
-        SkillEntity(
-          id: "toz_steppe_combo_$id", 
-          name: "Bozkırın Gücü", 
-          description: "Ateş arkadaşı varsa hararetlenir (+40 Şifa)", 
-          cost: 2, 
-          type: SkillType.heal, 
-          value: 40,
-          prerequisite: const SkillPrerequisite(
-            target: PrerequisiteTarget.teammate,
-            requiredElements: [HeroElement.fire],
-          ),
-        ),
-    ];
-    randomSkill.shuffle();
-
-    return HeroCardEntity(
-      id: "card_$id",
-      name: name,
-      description: "Türk mitolojisinin efsanevi kahramanı.",
-      element: element,
-      role: role,
-      xp: xp,
-      cp: baseCp,
-      health: startingHealth,
-      attackPower: attackPower,
-      defensePower: defensePower,
-      imageUrl: "🎴",
-      kut: 0,
-      skillCards: randomSkill.take(2).toList(),
-    );
-  }}
+}

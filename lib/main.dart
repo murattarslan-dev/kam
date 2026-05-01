@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'core/di/injection.dart';
 import 'core/routes/app_router.dart';
+import 'firebase_options.dart';
 
 void main() async {
   // Flutter binding'lerini asenkron işlemlerden önce hazırla
-  final binding = WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Firebase'i başlat
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   // Dependency Injection (GetIt) kurulumunu başlat
   await setupLocator();

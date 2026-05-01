@@ -1,5 +1,6 @@
 import 'package:get_it/get_it.dart';
 import '../../feature/battle/presentation/manager/battle_cubit.dart';
+import '../firebase/firebase_service.dart';
 
 // Küresel servis bulucu (Service Locator)
 final sl = GetIt.instance;
@@ -24,4 +25,5 @@ Future<void> setupLocator() async {
   //----------------------------------------------------------------------------
 
   // Firebase veya diğer harici servisler buraya gelecek.
+  sl.registerLazySingleton<FirebaseService>(() => FirebaseService());
 }

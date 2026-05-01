@@ -50,6 +50,13 @@ enum HeroElement {
   }
 
   String get label => name[0].toUpperCase() + name.substring(1);
+
+  static HeroElement fromString(String value) {
+    return HeroElement.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => HeroElement.steppe,
+    );
+  }
 }
 
 /// HeroRole defines the class and primary function of the hero.
@@ -60,19 +67,40 @@ enum HeroRole {
   tank;
 
   String get label => name[0].toUpperCase() + name.substring(1);
+
+  static HeroRole fromString(String value) {
+    return HeroRole.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => HeroRole.warrior,
+    );
+  }
 }
 
 /// Töz Type defines what kind of effect the skill card will have.
 enum SkillType {
   heal,
   attackBuff,
-  defenseBuff,
+  defenseBuff;
+
+  static SkillType fromString(String value) {
+    return SkillType.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => SkillType.attackBuff,
+    );
+  }
 }
 
 /// PrerequisiteTarget defines who to check for elemental requirements.
 enum PrerequisiteTarget {
   teammate,
-  opponent,
+  opponent;
+
+  static PrerequisiteTarget fromString(String value) {
+    return PrerequisiteTarget.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => PrerequisiteTarget.teammate,
+    );
+  }
 }
 
 /// SkillPrerequisite represents the elemental requirements for a skill.
@@ -92,6 +120,24 @@ class SkillPrerequisite {
     final elementNames = requiredElements.map((e) => e.label).join(", ");
     final targetName = target == PrerequisiteTarget.teammate ? "Takım Arkadaşı" : "Rakip";
     return "Gereksinim: $elementNames ($targetName)";
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'target': target.name,
+      'requiredElements': requiredElements.map((e) => e.name).toList(),
+      'minCount': minCount,
+    };
+  }
+
+  factory SkillPrerequisite.fromMap(Map<String, dynamic> map) {
+    return SkillPrerequisite(
+      target: PrerequisiteTarget.fromString(map['target'] as String),
+      requiredElements: (map['requiredElements'] as List<dynamic>)
+          .map((e) => HeroElement.fromString(e as String))
+          .toList(),
+      minCount: map['minCount'] as int,
+    );
   }
 }
 
@@ -115,6 +161,32 @@ class SkillEntity {
     required this.value,
     this.prerequisite,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'cost': cost,
+      'type': type.name,
+      'value': value,
+      'prerequisite': prerequisite?.toMap(),
+    };
+  }
+
+  factory SkillEntity.fromMap(Map<String, dynamic> map) {
+    return SkillEntity(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      description: map['description'] as String,
+      cost: map['cost'] as int,
+      type: SkillType.fromString(map['type'] as String),
+      value: map['value'] as int,
+      prerequisite: map['prerequisite'] != null
+          ? SkillPrerequisite.fromMap(map['prerequisite'] as Map<String, dynamic>)
+          : null,
+    );
+  }
 }
 
 /// HeroCardEntity represents a hero card in the "Kam: Kut'un Doğuşu" universe.
@@ -216,6 +288,53 @@ class HeroCardEntity {
       bonusAttack: bonusAttack ?? this.bonusAttack,
       bonusDefense: bonusDefense ?? this.bonusDefense,
       skillCards: skillCards ?? this.skillCards,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'element': element.name,
+      'role': role.name,
+      'xp': xp,
+      'cp': cp,
+      'attackPower': attackPower,
+      'defensePower': defensePower,
+      'imageUrl': imageUrl,
+      'skillCards': skillCards.map((x) => x.toMap()).toList(),
+    };
+  }
+
+  factory HeroCardEntity.fromMap(Map<String, dynamic> map) {
+    final xp = map['xp'] as int;
+    final cp = map['cp'] as int;
+    
+    // Mevcut seviyeye göre maksimum canı (currentCp) hesapla
+    final level = 1 + (xp ~/ 1000);
+    final levelMultiplier = 1 + level * 0.1;
+    final maxHealth = (cp * levelMultiplier).round();
+
+    return HeroCardEntity(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      description: map['description'] as String,
+      element: HeroElement.fromString(map['element'] as String),
+      role: HeroRole.fromString(map['role'] as String),
+      xp: xp,
+      cp: cp,
+      health: maxHealth, // Savaş başında can full başlar
+      attackPower: map['attackPower'] as int,
+      defensePower: map['defensePower'] as int,
+      imageUrl: map['imageUrl'] as String,
+      kut: 0,
+      bonusAttack: 0,
+      bonusDefense: 0,
+      skillCards: (map['skillCards'] as List<dynamic>?)
+              ?.map((x) => SkillEntity.fromMap(x as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
   }
 }

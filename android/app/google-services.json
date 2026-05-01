@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "430093785717",
+    "project_id": "kam-1a8ab",
+    "storage_bucket": "kam-1a8ab.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:430093785717:android:6eb2afc57a9b422a0d363c",
+        "android_client_info": {
+          "package_name": "com.murattarslan.kam"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-Pu4moG7DZPkOf4wP71bT1BymI_7MKjE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
