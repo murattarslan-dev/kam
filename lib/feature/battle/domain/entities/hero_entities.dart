@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-
+import 'dart:math';
 /// HeroElement represents the elemental affinity of a hero.
 enum HeroElement {
   fire,
