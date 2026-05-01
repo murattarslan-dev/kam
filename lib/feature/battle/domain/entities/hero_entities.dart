@@ -306,7 +306,7 @@ class HeroCardEntity {
   }
 
   factory HeroCardEntity.fromMap(Map<String, dynamic> map, {List<SkillEntity> skills = const []}) {
-    final xp = Random().nextInt(10000);
+    final xp = map['xp'] as int? ?? Random().nextInt(10000);
     final hp = map['hp'] as int? ?? 100; // Yeni yapı: hp
     
     // Mevcut seviyeye göre maksimum canı hesapla
