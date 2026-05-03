@@ -13,6 +13,7 @@ class KamCardWidget extends StatelessWidget {
   final double? advantageMultiplier;
   final List<ActiveBuff> activeBuffs;
   final List<BuffEntity> allBuffs;
+  final double? overrideWidth;
 
   const KamCardWidget({
     super.key,
@@ -24,6 +25,7 @@ class KamCardWidget extends StatelessWidget {
     this.advantageMultiplier,
     this.activeBuffs = const [],
     this.allBuffs = const [],
+    this.overrideWidth,
   });
 
   @override
@@ -33,7 +35,7 @@ class KamCardWidget extends StatelessWidget {
     final double translateY = isSelected && card.isAlive ? -context.scaleH(10) : 0.0;
 
     // Responsive boyutlar
-    final double cardWidth = context.responsive(
+    final double cardWidth = overrideWidth ?? context.responsive(
       context.screenWidth * 0.28, // Mobil için ekranın %28'i
       tablet: 140.0,
       desktop: 160.0,

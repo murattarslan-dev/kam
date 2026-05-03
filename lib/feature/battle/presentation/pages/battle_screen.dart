@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../manager/battle_cubit.dart';
 import '../manager/battle_state.dart';
@@ -9,12 +10,18 @@ import 'package:kam/core/util/responsive_helper.dart';
 import 'package:kam/core/di/injection.dart';
 
 class BattleScreen extends StatelessWidget {
-  const BattleScreen({super.key});
+  final List<HeroCardEntity>? playerTeam;
+  final List<HeroCardEntity>? benchHeroes;
+
+  const BattleScreen({super.key, this.playerTeam, this.benchHeroes});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => sl<BattleCubit>()..startBattle(),
+      create: (context) => sl<BattleCubit>()..startBattle(
+        playerTeam: playerTeam,
+        benchHeroes: benchHeroes,
+      ),
       child: const BattleView(),
     );
   }
@@ -518,7 +525,7 @@ class _BattleViewState extends State<BattleView> {
           const SizedBox(height: 10),
           Text(state.message, style: const TextStyle(fontSize: 18)),
           const SizedBox(height: 40),
-          ElevatedButton(onPressed: () => context.read<BattleCubit>().startBattle(), child: const Text("TEKRAR OYNA")),
+          ElevatedButton(onPressed: () => context.go('/team-setup'), child: const Text("TEKRAR OYNA")),
         ],
       ),
     );

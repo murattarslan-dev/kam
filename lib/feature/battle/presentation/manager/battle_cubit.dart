@@ -36,14 +36,21 @@ class BattleCubit extends Cubit<BattleState> {
     this._swapHeroUseCase,
   ) : super(const BattleInitial());
 
-  /// Firestore'dan verileri çeker ve savaşı başlatır
-  Future<void> startBattle() async {
+  /// Takım hazırlama ekranından veya doğrudan başlatma ile savaşı başlatır.
+  /// [playerTeam] ve [benchHeroes] verilirse bunlar kullanılır, verilmezse Firestore'dan çekilir.
+  Future<void> startBattle({
+    List<HeroCardEntity>? playerTeam,
+    List<HeroCardEntity>? benchHeroes,
+  }) async {
     emit(const BattleLoading());
-    final result = await _startBattleUseCase.execute();
-    
+    final result = await _startBattleUseCase.execute(
+      predefinedPlayerTeam: playerTeam,
+      predefinedBenchHeroes: benchHeroes,
+    );
+
     if (result is BattleInProgress) {
-      // Savaş başlagıcındaki otomatik buff'ları kontrol et
-      final stateWithBuffs = _handleBuffsUseCase.checkAutoBuffs(result, BuffTriggerCondition.onBattleStart);
+      final stateWithBuffs = _handleBuffsUseCase.checkAutoBuffs(
+          result, BuffTriggerCondition.onBattleStart);
       emit(stateWithBuffs);
     } else {
       emit(result);
