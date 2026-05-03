@@ -40,7 +40,11 @@ class StartBattleUseCase {
         enemyTeam.add(enemyHero);
       }
 
+      // İlk 3 kahraman sahaya, kalanlar yedek kadroya
       final playerTeam = playerHeroes.take(3).toList();
+      final benchHeroes = playerHeroes.length > 3
+          ? playerHeroes.sublist(3)
+          : <HeroCardEntity>[];
 
       // 3. Tüm buff'ları getir
       final allBuffs = await _repository.fetchAllBuffs();
@@ -49,6 +53,7 @@ class StartBattleUseCase {
         playerTeam: playerTeam,
         enemyTeam: enemyTeam,
         allBuffs: allBuffs,
+        benchHeroes: benchHeroes,
         battleLogs: const ["Savaş başladı! Oyuncu ve düşman takımları hazır."],
       );
     } catch (e) {

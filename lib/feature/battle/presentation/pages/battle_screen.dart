@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../manager/battle_cubit.dart';
 import '../manager/battle_state.dart';
 import '../widgets/card_widget.dart';
+import '../../domain/entities/hero_entities.dart';
 import 'package:kam/core/util/responsive_helper.dart';
 import 'package:kam/core/di/injection.dart';
 
@@ -320,6 +321,25 @@ class _BattleViewState extends State<BattleView> {
                       style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white24, letterSpacing: 8),
                     ),
                   const SizedBox(height: 10),
+                  // Değiştir butonu: hero seçili, hedef yok, henüz saldırı yapılmamış, bench dolu
+                  if (state.isPlayerTurn &&
+                      state.selectedHeroIndex != null &&
+                      state.selectedTargetIndex == null &&
+                      state.benchHeroes.isNotEmpty &&
+                      state.actedHeroIds.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => _showSwapDialog(context, state),
+                        icon: const Icon(LucideIcons.arrowLeftRight, color: Colors.white, size: 18),
+                        label: const Text("DEĞİŞTİR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
                   if (state.selectedHeroIndex == null && state.selectedTargetIndex == null)
                     Icon(
                       state.isPlayerTurn ? LucideIcons.swords : LucideIcons.shieldAlert,
@@ -365,10 +385,70 @@ class _BattleViewState extends State<BattleView> {
     );
   }
 
+  String _elementEmoji(HeroElement element) => switch (element) {
+    HeroElement.fire => "🔥",
+    HeroElement.water => "💧",
+    HeroElement.wind => "🌬️",
+    HeroElement.steppe => "🌾",
+    HeroElement.forest => "🌲",
+    HeroElement.dark => "🌑",
+  };
+
+  void _showSwapDialog(BuildContext context, BattleInProgress state) {
+    final heroIndex = state.selectedHeroIndex;
+    if (heroIndex == null) return;
+    final fieldHero = state.playerTeam[heroIndex];
+    // Cubit'i dialog açılmadan önce yakala — dialog içindeki context'ler
+    // BlocProvider'a ulaşamadığından bu referans kapatma (closure) yoluyla kullanılır.
+    final cubit = context.read<BattleCubit>();
+
+    showDialog(
+      context: context,
+      builder: (dContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0F172A),
+          title: Text(
+            "${fieldHero.name} → Değiştir",
+            style: const TextStyle(color: Colors.tealAccent, fontSize: 16),
+          ),
+          content: SizedBox(
+            width: 400,
+            height: 300,
+            child: ListView.builder(
+              itemCount: state.benchHeroes.length,
+              itemBuilder: (_, index) {
+                final bench = state.benchHeroes[index];
+                return ListTile(
+                  leading: Text(_elementEmoji(bench.element), style: const TextStyle(fontSize: 22)),
+                  title: Text(bench.name, style: const TextStyle(color: Colors.white)),
+                  subtitle: Text(
+                    "Lv ${bench.level}  ·  ATK ${bench.currentAttackPower}  ·  DEF ${bench.currentDefensePower}  ·  HP ${bench.health}/${bench.currentCp}",
+                    style: const TextStyle(color: Colors.white60, fontSize: 11),
+                  ),
+                  onTap: () {
+                    Navigator.pop(dContext);
+                    cubit.swapHero(heroIndex, index);
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dContext),
+              child: const Text("KAPAT"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showTozDialog(BuildContext context, BattleInProgress state) {
     final heroIndex = state.selectedHeroIndex;
     if (heroIndex == null) return;
     final hero = state.playerTeam[heroIndex];
+    final cubit = context.read<BattleCubit>();
 
     showDialog(
       context: context,
@@ -381,11 +461,11 @@ class _BattleViewState extends State<BattleView> {
             height: 300,
             child: ListView.builder(
               itemCount: hero.skillCards.length,
-              itemBuilder: (context, index) {
+              itemBuilder: (_, index) {
                 final skill = hero.skillCards[index];
                 final isUsed = state.usedSkillIds.contains(skill.id);
                 final canAfford = hero.kut >= skill.cost;
-                final isPrerequisiteMet = context.read<BattleCubit>().isSkillPrerequisiteMet(hero, skill);
+                final isPrerequisiteMet = cubit.isSkillPrerequisiteMet(hero, skill);
                 final isAvailable = !isUsed && canAfford && isPrerequisiteMet && state.isPlayerTurn;
 
                 return ListTile(
@@ -393,8 +473,8 @@ class _BattleViewState extends State<BattleView> {
                   subtitle: Text(skill.description, style: TextStyle(color: isAvailable ? Colors.white70 : Colors.white12)),
                   trailing: Text(skill.cost.toString(), style: const TextStyle(color: Colors.blueAccent)),
                   onTap: isAvailable ? () {
-                    context.read<BattleCubit>().useSkill(heroIndex, skill);
                     Navigator.pop(dContext);
+                    cubit.useSkill(heroIndex, skill);
                   } : null,
                 );
               },

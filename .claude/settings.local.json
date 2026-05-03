@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze *)",
+      "Bash(firebase --version)",
+      "Bash(flutterfire --version)",
+      "PowerShell(firebase --version)",
+      "PowerShell(flutterfire --version)",
+      "PowerShell($credPath = \"$env:APPDATA\\\\Google\\\\firebase-tools\"; if \\(Test-Path $credPath\\) { Get-ChildItem $credPath } else { Write-Output \"Bulunamadi: $credPath\" })",
+      "PowerShell($paths = @\\(\"$env:APPDATA\\\\firebase\", \"$env:USERPROFILE\\\\.config\\\\firebase\", \"$env:APPDATA\\\\Roaming\\\\firebase\"\\); foreach \\($p in $paths\\) { if \\(Test-Path $p\\) { Write-Output \"FOUND: $p\"; Get-ChildItem $p } })",
+      "Bash(flutter run *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(flutter devices *)",
+      "mcp__Claude_in_Chrome__list_connected_browsers",
+      "mcp__Claude_in_Chrome__switch_browser",
+      "PowerShell($token = \\(Get-Content \"$env:USERPROFILE\\\\.config\\\\configstore\\\\firebase-tools.json\" | ConvertFrom-Json\\).tokens.access_token; $headers = @{ Authorization = \"Bearer $token\" }; $res = Invoke-RestMethod -Uri \"https://firestore.googleapis.com/v1/projects/kam-1a8ab/databases/\\(default\\)/documents/buffs\" -Headers $headers; $res.documents | ForEach-Object { Write-Output $_.name.Split\\(\"/\"\\)[-1] })",
+      "Bash(node seed_heroes.js)",
+      "Bash(node -e ' *)",
+      "Bash(firebase login *)",
+      "Bash(node -e \"const ft = require\\('firebase-tools/lib/auth'\\); console.log\\(JSON.stringify\\(ft\\).substring\\(0, 1000\\)\\)\")",
+      "Bash(npm root *)",
+      "Bash(grep -r \"client_secret\\\\|CLIENT_SECRET\" \"$\\(npm root -g\\)/firebase-tools/lib/api.js\")",
+      "Bash(cat \"$\\(npm root -g\\)/firebase-tools/lib/api.js\")",
+      "Bash(tasklist)",
+      "Bash(taskkill /F /IM dart.exe /T)",
+      "Bash(taskkill /F /IM dartaotruntime.exe /T)",
+      "Bash(curl -s http://localhost:3000)"
+    ]
+  }
+}

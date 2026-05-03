@@ -13,6 +13,7 @@ import '../../feature/battle/domain/usecases/use_skill_usecase.dart';
 import '../../feature/battle/domain/usecases/execute_enemy_turn_usecase.dart';
 import '../../feature/battle/domain/usecases/finalize_xp_usecase.dart';
 import '../../feature/battle/domain/usecases/handle_buffs_usecase.dart';
+import '../../feature/battle/domain/usecases/swap_hero_usecase.dart';
 
 // Küresel servis bulucu (Service Locator)
 final sl = GetIt.instance;
@@ -37,10 +38,11 @@ Future<void> setupLocator() async {
   sl.registerLazySingleton(() => UseSkillUseCase(sl()));
   sl.registerLazySingleton(() => ExecuteEnemyTurnUseCase(sl()));
   sl.registerLazySingleton(() => FinalizeXpUseCase(sl()));
+  sl.registerLazySingleton(() => SwapHeroUseCase(sl()));
 
   // Presentation - Cubit
   sl.registerFactory(() => BattleCubit(
-    sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(),
+    sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(),
   ));
 
   //----------------------------------------------------------------------------

@@ -60,6 +60,9 @@ final class BattleInProgress extends BattleState {
   final List<BuffEntity> allBuffs;    // Firestore'dan çekilen tüm buff listesi
   final List<ActiveBuff> activeBuffs; // O an aktif olan buff'lar
 
+  // Yedek Kadro
+  final List<HeroCardEntity> benchHeroes; // Sahada olmayan, değiştirilebilir kahramanlar
+
   const BattleInProgress({
     required this.playerTeam,
     required this.enemyTeam,
@@ -75,6 +78,7 @@ final class BattleInProgress extends BattleState {
     this.currentAction,
     this.allBuffs = const [],
     this.activeBuffs = const [],
+    this.benchHeroes = const [],
   });
 
   /// State'i güncellerken değişmeyen alanları korumamızı sağlayan yardımcı metod
@@ -93,6 +97,7 @@ final class BattleInProgress extends BattleState {
     BattleAction? currentAction,
     List<BuffEntity>? allBuffs,
     List<ActiveBuff>? activeBuffs,
+    List<HeroCardEntity>? benchHeroes,
     bool clearSelection = false,
     bool clearTarget = false,
     bool clearAction = false,
@@ -112,6 +117,7 @@ final class BattleInProgress extends BattleState {
       currentAction: clearAction ? null : (currentAction ?? this.currentAction),
       allBuffs: allBuffs ?? this.allBuffs,
       activeBuffs: activeBuffs ?? this.activeBuffs,
+      benchHeroes: benchHeroes ?? this.benchHeroes,
     );
   }
 

@@ -111,9 +111,11 @@ class HandleBuffsUseCase {
         updatedActiveBuffs.add(activeBuff.copyWith(remainingTurns: activeBuff.remainingTurns - 1));
       } else {
         final buff = stateWithEffects.allBuffs.firstWhere((b) => b.id == activeBuff.buffId);
-        final hero = [...stateWithEffects.playerTeam, ...stateWithEffects.enemyTeam]
-            .firstWhere((h) => h.id == activeBuff.targetHeroId);
-        logs.insert(0, "${hero.name} üzerindeki ${buff.name} etkisi sona erdi.");
+        final allHeroes = [...stateWithEffects.playerTeam, ...stateWithEffects.enemyTeam, ...stateWithEffects.benchHeroes];
+        final hero = allHeroes.where((h) => h.id == activeBuff.targetHeroId).firstOrNull;
+        if (hero != null) {
+          logs.insert(0, "${hero.name} üzerindeki ${buff.name} etkisi sona erdi.");
+        }
       }
     }
 
@@ -174,13 +176,16 @@ class HandleBuffsUseCase {
   }
 
   /// Tüm kahramanların bonus statlarını aktif buff'lara göre yeniden hesaplar.
+  /// Yedek kadrodaki kahramanların statları da güncellenir (geri döndüklerinde doğru görünsün).
   BattleInProgress recalculateAllHeroStats(BattleInProgress state) {
     final updatedPlayerTeam = state.playerTeam.map((h) => _calculateHeroStats(h, state.activeBuffs, state.allBuffs)).toList();
     final updatedEnemyTeam = state.enemyTeam.map((h) => _calculateHeroStats(h, state.activeBuffs, state.allBuffs)).toList();
+    final updatedBenchHeroes = state.benchHeroes.map((h) => _calculateHeroStats(h, state.activeBuffs, state.allBuffs)).toList();
 
     return state.copyWith(
       playerTeam: updatedPlayerTeam,
       enemyTeam: updatedEnemyTeam,
+      benchHeroes: updatedBenchHeroes,
     );
   }
 

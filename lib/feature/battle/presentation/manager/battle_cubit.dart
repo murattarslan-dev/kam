@@ -10,6 +10,7 @@ import '../../domain/usecases/use_skill_usecase.dart';
 import '../../domain/usecases/execute_enemy_turn_usecase.dart';
 import '../../domain/usecases/finalize_xp_usecase.dart';
 import '../../domain/usecases/handle_buffs_usecase.dart';
+import '../../domain/usecases/swap_hero_usecase.dart';
 import '../../domain/entities/buff_entities.dart';
 
 class BattleCubit extends Cubit<BattleState> {
@@ -21,6 +22,7 @@ class BattleCubit extends Cubit<BattleState> {
   final ExecuteEnemyTurnUseCase _executeEnemyTurnUseCase;
   final FinalizeXpUseCase _finalizeXpUseCase;
   final HandleBuffsUseCase _handleBuffsUseCase;
+  final SwapHeroUseCase _swapHeroUseCase;
 
   BattleCubit(
     this._startBattleUseCase,
@@ -31,6 +33,7 @@ class BattleCubit extends Cubit<BattleState> {
     this._executeEnemyTurnUseCase,
     this._finalizeXpUseCase,
     this._handleBuffsUseCase,
+    this._swapHeroUseCase,
   ) : super(const BattleInitial());
 
   /// Firestore'dan verileri çeker ve savaşı başlatır
@@ -84,6 +87,17 @@ class BattleCubit extends Cubit<BattleState> {
   }
 
   Completer<void>? _enemyAnimationCompleter;
+
+  /// Sahadaki kahramanı yedek kadrodan biriyle değiştirir.
+  /// Değişim tur aksiyonu sayılır — düşman sırası hemen başlar.
+  void swapHero(int fieldIndex, int benchIndex) {
+    if (state is! BattleInProgress) return;
+    final newState = _swapHeroUseCase.execute(state as BattleInProgress, fieldIndex, benchIndex);
+    emit(newState);
+    if (newState is BattleInProgress && !newState.isPlayerTurn) {
+      _executeEnemyTurn();
+    }
+  }
 
   /// Seçilen kahraman için Töz kartı kullan
   void useSkill(int heroIndex, SkillEntity skill) {
