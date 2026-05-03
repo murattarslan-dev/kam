@@ -50,29 +50,30 @@ class KamCardWidget extends StatelessWidget {
       advantageColor = advantageMultiplier! > 1.0 ? Colors.greenAccent : Colors.redAccent;
     }
 
-    return GestureDetector(
-      onTap: card.isAlive ? onTap : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutBack,
-        margin: EdgeInsets.symmetric(
-          horizontal: context.responsive(4.0, tablet: 8.0),
-          vertical: context.responsive(8.0, tablet: 12.0),
-        ),
-        width: cardWidth,
-        height: cardHeight + (isSelected && card.isAlive ? 20 : 0), // Seçili olduğunda buton alanı ekle
-        transform: Matrix4.identity()
-          ..scale(scale, scale, 1.0)
-          ..translate(0.0, translateY, 0.0),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // Kart Gövdesi (Animasyonlu Dekorasyon ile)
-            Positioned(
-              top: 15,
-              left: 0,
-              right: 0,
-              bottom: 0,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutBack,
+      margin: EdgeInsets.symmetric(
+        horizontal: context.responsive(4.0, tablet: 8.0),
+        vertical: context.responsive(8.0, tablet: 12.0),
+      ),
+      width: cardWidth,
+      height: cardHeight + (isSelected && card.isAlive ? 20 : 0), // Seçili olduğunda buton alanı ekle
+      transform: Matrix4.identity()
+        ..scale(scale, scale, 1.0)
+        ..translate(0.0, translateY, 0.0),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Kart Gövdesi — GestureDetector yalnızca kart gövdesini sarar,
+          // Töz butonu ile çakışmayı önlemek için.
+          Positioned(
+            top: 15,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: GestureDetector(
+              onTap: card.isAlive ? onTap : null,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 decoration: BoxDecoration(
@@ -164,7 +165,8 @@ class KamCardWidget extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
+            ), // GestureDetector
+          ), // Positioned(top: 15) card body
             // Töz Kullan Butonu (Kartın üstünde, hit-test edilebilir alanda)
             if (onTozPressed != null && isSelected && card.isAlive)
               Positioned(
@@ -198,7 +200,6 @@ class KamCardWidget extends StatelessWidget {
               ),
           ],
         ),
-      ),
     );
   }
 
