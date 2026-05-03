@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../domain/entities/hero_entities.dart';
+import '../../domain/entities/buff_entities.dart';
 import 'package:kam/core/util/responsive_helper.dart';
 
 class KamCardWidget extends StatelessWidget {
@@ -10,6 +11,8 @@ class KamCardWidget extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onTozPressed;
   final double? advantageMultiplier;
+  final List<ActiveBuff> activeBuffs;
+  final List<BuffEntity> allBuffs;
 
   const KamCardWidget({
     super.key,
@@ -19,6 +22,8 @@ class KamCardWidget extends StatelessWidget {
     required this.onTap,
     this.onTozPressed,
     this.advantageMultiplier,
+    this.activeBuffs = const [],
+    this.allBuffs = const [],
   });
 
   @override
@@ -244,6 +249,7 @@ class KamCardWidget extends StatelessWidget {
   }
 
   Widget _buildBottomPanel(BuildContext context, double hpRatio) {
+    final heroBuffs = _resolveHeroBuffs();
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       decoration: BoxDecoration(
@@ -261,6 +267,10 @@ class KamCardWidget extends StatelessWidget {
               if (isSelected) _buildStatItem(Icons.favorite, card.currentCp.toString(), card.isAlive ? Colors.greenAccent : Colors.grey),
             ],
           ),
+          if (heroBuffs.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            _buildBuffStrip(heroBuffs),
+          ],
           const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -335,6 +345,87 @@ class KamCardWidget extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// Bu kartla eşleşen aktif buff'ları (BuffEntity, ActiveBuff) çiftleri olarak çözer.
+  List<({BuffEntity buff, ActiveBuff active})> _resolveHeroBuffs() {
+    if (activeBuffs.isEmpty || allBuffs.isEmpty) return const [];
+    final result = <({BuffEntity buff, ActiveBuff active})>[];
+    for (final ab in activeBuffs) {
+      if (ab.targetHeroId != card.id) continue;
+      final match = allBuffs.where((b) => b.id == ab.buffId);
+      if (match.isEmpty) continue;
+      result.add((buff: match.first, active: ab));
+    }
+    return result;
+  }
+
+  Widget _buildBuffStrip(List<({BuffEntity buff, ActiveBuff active})> heroBuffs) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 2,
+      runSpacing: 2,
+      children: heroBuffs.map((entry) => _buildBuffBadge(entry.buff, entry.active)).toList(),
+    );
+  }
+
+  Widget _buildBuffBadge(BuffEntity buff, ActiveBuff active) {
+    final (icon, color) = _buffVisual(buff);
+    final tooltip = '${buff.name}'
+        '${buff.description.isNotEmpty ? '\n${buff.description}' : ''}'
+        '${active.remainingTurns > 0 ? '\nKalan: ${active.remainingTurns} tur' : ''}';
+
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        width: 16,
+        height: 16,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.4),
+          border: Border.all(color: color.withValues(alpha: 0.7), width: 0.8),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Center(child: Icon(icon, size: 10, color: color)),
+            if (active.remainingTurns > 0)
+              Positioned(
+                right: -3,
+                bottom: -3,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${active.remainingTurns}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 7,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  (IconData, Color) _buffVisual(BuffEntity buff) {
+    switch (buff.type) {
+      case BuffType.dot:
+        return (Icons.local_fire_department, Colors.orangeAccent);
+      case BuffType.hot:
+        return (Icons.healing, Colors.greenAccent);
+      case BuffType.statChange:
+        return buff.isDebuff
+            ? (Icons.arrow_downward, Colors.redAccent)
+            : (Icons.arrow_upward, Colors.lightGreenAccent);
+    }
   }
 
   IconData _getRoleIcon(HeroRole role) {

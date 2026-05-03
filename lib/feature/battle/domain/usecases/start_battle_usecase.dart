@@ -42,9 +42,13 @@ class StartBattleUseCase {
 
       final playerTeam = playerHeroes.take(3).toList();
 
+      // 3. Tüm buff'ları getir
+      final allBuffs = await _repository.fetchAllBuffs();
+
       return BattleInProgress(
         playerTeam: playerTeam,
         enemyTeam: enemyTeam,
+        allBuffs: allBuffs,
         battleLogs: const ["Savaş başladı! Oyuncu ve düşman takımları hazır."],
       );
     } catch (e) {

@@ -9,6 +9,8 @@ import '../../domain/usecases/apply_player_attack_usecase.dart';
 import '../../domain/usecases/use_skill_usecase.dart';
 import '../../domain/usecases/execute_enemy_turn_usecase.dart';
 import '../../domain/usecases/finalize_xp_usecase.dart';
+import '../../domain/usecases/handle_buffs_usecase.dart';
+import '../../domain/entities/buff_entities.dart';
 
 class BattleCubit extends Cubit<BattleState> {
   final StartBattleUseCase _startBattleUseCase;
@@ -18,6 +20,7 @@ class BattleCubit extends Cubit<BattleState> {
   final UseSkillUseCase _useSkillUseCase;
   final ExecuteEnemyTurnUseCase _executeEnemyTurnUseCase;
   final FinalizeXpUseCase _finalizeXpUseCase;
+  final HandleBuffsUseCase _handleBuffsUseCase;
 
   BattleCubit(
     this._startBattleUseCase,
@@ -27,13 +30,21 @@ class BattleCubit extends Cubit<BattleState> {
     this._useSkillUseCase,
     this._executeEnemyTurnUseCase,
     this._finalizeXpUseCase,
+    this._handleBuffsUseCase,
   ) : super(const BattleInitial());
 
   /// Firestore'dan verileri çeker ve savaşı başlatır
   Future<void> startBattle() async {
     emit(const BattleLoading());
     final result = await _startBattleUseCase.execute();
-    emit(result);
+    
+    if (result is BattleInProgress) {
+      // Savaş başlagıcındaki otomatik buff'ları kontrol et
+      final stateWithBuffs = _handleBuffsUseCase.checkAutoBuffs(result, BuffTriggerCondition.onBattleStart);
+      emit(stateWithBuffs);
+    } else {
+      emit(result);
+    }
   }
 
   /// Bir kahramanı seçme veya hedef belirleme

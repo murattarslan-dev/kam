@@ -263,6 +263,26 @@ class _BattleViewState extends State<BattleView> {
                 ],
               );
             }
+            // BattleError veya beklenmedik durum
+            if (state is BattleError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        state.errorMessage,
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 14),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
             return const SizedBox.shrink();
           },
         ),
@@ -336,6 +356,8 @@ class _BattleViewState extends State<BattleView> {
               isEnemy: isEnemy,
               onTap: () => context.read<BattleCubit>().selectHero(index, isEnemy),
               onTozPressed: (!isEnemy && isSelected && state.isPlayerTurn) ? () => _showTozDialog(context, state) : null,
+              activeBuffs: state.activeBuffs,
+              allBuffs: state.allBuffs,
             ),
           ),
         );

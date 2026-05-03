@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../../battle/domain/entities/hero_entities.dart';
+import '../../domain/entities/buff_entities.dart';
 
 @immutable
 sealed class BattleState {
@@ -55,6 +56,10 @@ final class BattleInProgress extends BattleState {
   // Mevcut Animasyon
   final BattleAction? currentAction; // O an oynatılan bir animasyon varsa
 
+  // Buff/Debuff Yönetimi
+  final List<BuffEntity> allBuffs;    // Firestore'dan çekilen tüm buff listesi
+  final List<ActiveBuff> activeBuffs; // O an aktif olan buff'lar
+
   const BattleInProgress({
     required this.playerTeam,
     required this.enemyTeam,
@@ -68,6 +73,8 @@ final class BattleInProgress extends BattleState {
     this.turnsSinceEffect = const {},
     this.usedSkillIds = const [],
     this.currentAction,
+    this.allBuffs = const [],
+    this.activeBuffs = const [],
   });
 
   /// State'i güncellerken değişmeyen alanları korumamızı sağlayan yardımcı metod
@@ -84,6 +91,8 @@ final class BattleInProgress extends BattleState {
     Map<String, int>? turnsSinceEffect,
     List<String>? usedSkillIds,
     BattleAction? currentAction,
+    List<BuffEntity>? allBuffs,
+    List<ActiveBuff>? activeBuffs,
     bool clearSelection = false,
     bool clearTarget = false,
     bool clearAction = false,
@@ -101,6 +110,8 @@ final class BattleInProgress extends BattleState {
       turnsSinceEffect: turnsSinceEffect ?? this.turnsSinceEffect,
       usedSkillIds: usedSkillIds ?? this.usedSkillIds,
       currentAction: clearAction ? null : (currentAction ?? this.currentAction),
+      allBuffs: allBuffs ?? this.allBuffs,
+      activeBuffs: activeBuffs ?? this.activeBuffs,
     );
   }
 

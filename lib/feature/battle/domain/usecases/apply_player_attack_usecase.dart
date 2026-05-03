@@ -1,8 +1,14 @@
 import 'dart:math';
 import '../entities/hero_entities.dart';
+import '../entities/buff_entities.dart';
 import '../../presentation/manager/battle_state.dart';
+import 'handle_buffs_usecase.dart';
 
 class ApplyPlayerAttackUseCase {
+  final HandleBuffsUseCase _handleBuffsUseCase;
+
+  ApplyPlayerAttackUseCase(this._handleBuffsUseCase);
+
   BattleState execute(BattleInProgress currentState, BattleAction action) {
     final attacker = action.attacker;
     final target = action.target;
@@ -40,7 +46,7 @@ class ApplyPlayerAttackUseCase {
 
     final updatedActedIds = List<String>.from(currentState.actedHeroIds)..add(attacker.id);
 
-    final nextState = currentState.copyWith(
+    BattleInProgress nextState = currentState.copyWith(
       playerTeam: updatedPlayerTeam,
       enemyTeam: updatedEnemyTeam,
       battleLogs: updatedLogs,
@@ -49,6 +55,9 @@ class ApplyPlayerAttackUseCase {
       clearSelection: true,
       clearAction: true,
     );
+
+    // Hasar sonrası HP eşiği tetikleyicilerini kontrol et.
+    nextState = _handleBuffsUseCase.checkHpTriggers(nextState);
 
     return _processTurnEnd(nextState);
   }
@@ -66,11 +75,16 @@ class ApplyPlayerAttackUseCase {
     // 2. Sıra Değişim Kontrolü (Tüm yaşayan oyuncular hamle yaptı mı?)
     final alivePlayerCount = nextState.playerTeam.where((p) => p.isAlive).length;
     if (nextState.actedHeroIds.length >= alivePlayerCount) {
-      // Oyuncu turu bitti, düşman turuna geç
-      return nextState.copyWith(
+      // Oyuncu turu bitiyor — onTurnEnd tetikleyicilerini çalıştır.
+      final stateAfterTurnEnd = _handleBuffsUseCase.checkAutoBuffs(
+        nextState,
+        BuffTriggerCondition.onTurnEnd,
+      );
+
+      return stateAfterTurnEnd.copyWith(
         isPlayerTurn: false,
         actedHeroIds: [], // Düşman için hamle listesini temizle
-        battleLogs: ["Sıra düşmanda! Savunmaya geç!", ...nextState.battleLogs],
+        battleLogs: ["Sıra düşmanda! Savunmaya geç!", ...stateAfterTurnEnd.battleLogs],
       );
     } else {
       return nextState;

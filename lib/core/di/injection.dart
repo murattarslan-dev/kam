@@ -12,6 +12,7 @@ import '../../feature/battle/domain/usecases/apply_player_attack_usecase.dart';
 import '../../feature/battle/domain/usecases/use_skill_usecase.dart';
 import '../../feature/battle/domain/usecases/execute_enemy_turn_usecase.dart';
 import '../../feature/battle/domain/usecases/finalize_xp_usecase.dart';
+import '../../feature/battle/domain/usecases/handle_buffs_usecase.dart';
 
 // Küresel servis bulucu (Service Locator)
 final sl = GetIt.instance;
@@ -28,17 +29,18 @@ Future<void> setupLocator() async {
   sl.registerLazySingleton<BattleRepository>(() => BattleRepositoryImpl(sl()));
 
   // Domain - Use Cases
+  sl.registerLazySingleton(() => HandleBuffsUseCase());
   sl.registerLazySingleton(() => StartBattleUseCase(sl()));
   sl.registerLazySingleton(() => SelectHeroUseCase());
   sl.registerLazySingleton(() => ExecutePlayerAttackUseCase());
-  sl.registerLazySingleton(() => ApplyPlayerAttackUseCase());
-  sl.registerLazySingleton(() => UseSkillUseCase());
-  sl.registerLazySingleton(() => ExecuteEnemyTurnUseCase());
+  sl.registerLazySingleton(() => ApplyPlayerAttackUseCase(sl()));
+  sl.registerLazySingleton(() => UseSkillUseCase(sl()));
+  sl.registerLazySingleton(() => ExecuteEnemyTurnUseCase(sl()));
   sl.registerLazySingleton(() => FinalizeXpUseCase(sl()));
 
   // Presentation - Cubit
   sl.registerFactory(() => BattleCubit(
-    sl(), sl(), sl(), sl(), sl(), sl(), sl(),
+    sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(),
   ));
 
   //----------------------------------------------------------------------------

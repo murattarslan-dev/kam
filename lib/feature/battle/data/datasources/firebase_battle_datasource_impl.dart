@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/hero_entities.dart';
+import '../../domain/entities/buff_entities.dart';
 import 'battle_datasource.dart';
 
 class FirebaseBattleDataSourceImpl implements BattleDataSource {
@@ -94,5 +95,16 @@ class FirebaseBattleDataSourceImpl implements BattleDataSource {
     } catch (e) {
       // Handle error
     }
+  }
+
+  @override
+  Future<List<BuffEntity>> fetchAllBuffs() async {
+    final buffsCollection = _firestore.collection('buffs');
+    QuerySnapshot snapshot = await buffsCollection.get();
+    return snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      data['id'] = doc.id;
+      return BuffEntity.fromMap(data);
+    }).toList();
   }
 }

@@ -1,8 +1,14 @@
 import 'dart:math';
 import 'dart:async';
 import '../../presentation/manager/battle_state.dart';
+import '../entities/buff_entities.dart';
+import 'handle_buffs_usecase.dart';
 
 class ExecuteEnemyTurnUseCase {
+  final HandleBuffsUseCase _handleBuffsUseCase;
+
+  ExecuteEnemyTurnUseCase(this._handleBuffsUseCase);
+
   Future<void> execute({
     required BattleInProgress currentState,
     required Function(BattleState) onEmit,
@@ -55,10 +61,13 @@ class ExecuteEnemyTurnUseCase {
         clearAction: true,
       );
 
+      // Hasar sonrası HP eşiği tetikleyicilerini kontrol et.
+      current = _handleBuffsUseCase.checkHpTriggers(current);
+
       onEmit(current);
 
       // Kaybetme Kontrolü
-      if (updatedPlayerTeam.every((p) => !p.isAlive)) {
+      if (current.playerTeam.every((p) => !p.isAlive)) {
         await onFinalize(false);
         onEmit(const BattleResult(message: "MAĞLUBİYET... Kut elimizden kayıp gitti.", isVictory: false));
         return;
@@ -67,8 +76,20 @@ class ExecuteEnemyTurnUseCase {
 
     // Düşman turu bitti, yeni tura geç ve oyuncuya ver
     await Future.delayed(const Duration(milliseconds: 500));
-    
-    // Yeni turda oyuncunun yaşayan karakterlerine +1 Kut
+
+    // 1. Düşman turu bitiyor — onTurnEnd tetikleyicileri.
+    current = _handleBuffsUseCase.checkAutoBuffs(current, BuffTriggerCondition.onTurnEnd);
+
+    // 2. Tur sonu buff işlemlerini yap (DoT/HoT etkileri ve süre azaltma).
+    current = _handleBuffsUseCase.processTurnEnd(current);
+
+    // 3. DoT etkilerinden sonra oluşan HP düşüşleri için bir kez daha eşik kontrolü.
+    current = _handleBuffsUseCase.checkHpTriggers(current);
+
+    // 4. Yeni tur başında tetiklenen buff'ları kontrol et.
+    current = _handleBuffsUseCase.checkAutoBuffs(current, BuffTriggerCondition.onTurnStart);
+
+    // Yeni turda oyuncunun yaşayan karakterlerine +1 Kut (DoT sonrası güncel state üzerinden)
     final updatedPlayerTeam = current.playerTeam.map((p) {
       if (p.isAlive) {
         return p.copyWith(kut: p.kut + 1);
