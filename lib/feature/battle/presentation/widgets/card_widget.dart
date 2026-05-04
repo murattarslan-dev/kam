@@ -428,6 +428,8 @@ class KamCardWidget extends StatelessWidget {
         return buff.isDebuff
             ? (Icons.arrow_downward, Colors.redAccent)
             : (Icons.arrow_upward, Colors.lightGreenAccent);
+      case BuffType.damageSoak:
+        return (Icons.local_fire_department, Colors.redAccent);
     }
   }
 

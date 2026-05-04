@@ -106,9 +106,13 @@ class UseSkillUseCase {
     for (var member in targetTeam) {
       if (prerequisite.target == PrerequisiteTarget.teammate && member.id == hero.id) continue;
 
-      if (member.isAlive && prerequisite.requiredElements.contains(member.element)) {
-        count++;
-      }
+      if (!member.isAlive) continue;
+
+      final elementMatch = prerequisite.requiredElements.isEmpty ||
+          prerequisite.requiredElements.contains(member.element);
+      final roleMatch = prerequisite.requiredRoles.isEmpty ||
+          prerequisite.requiredRoles.contains(member.role);
+      if (elementMatch && roleMatch) count++;
     }
 
     return count >= prerequisite.minCount;

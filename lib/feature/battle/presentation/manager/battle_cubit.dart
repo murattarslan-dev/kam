@@ -51,7 +51,8 @@ class BattleCubit extends Cubit<BattleState> {
     if (result is BattleInProgress) {
       final stateWithBuffs = _handleBuffsUseCase.checkAutoBuffs(
           result, BuffTriggerCondition.onBattleStart);
-      emit(stateWithBuffs);
+      final stateWithPassives = _handleBuffsUseCase.checkPassiveBuffs(stateWithBuffs);
+      emit(stateWithPassives);
     } else {
       emit(result);
     }
@@ -116,7 +117,7 @@ class BattleCubit extends Cubit<BattleState> {
   /// Düşman Yapay Zekası
   Future<void> _executeEnemyTurn() async {
     if (state is! BattleInProgress) return;
-    
+
     await _executeEnemyTurnUseCase.execute(
       currentState: state as BattleInProgress,
       onEmit: (newState) => emit(newState),

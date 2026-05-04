@@ -103,29 +103,38 @@ enum PrerequisiteTarget {
   }
 }
 
-/// SkillPrerequisite represents the elemental requirements for a skill.
+/// SkillPrerequisite represents the elemental and role requirements for a skill.
 @immutable
 class SkillPrerequisite {
   final PrerequisiteTarget target;
   final List<HeroElement> requiredElements;
+  final List<HeroRole> requiredRoles; // empty = any role
   final int minCount;
 
   const SkillPrerequisite({
     required this.target,
     required this.requiredElements,
+    this.requiredRoles = const [],
     this.minCount = 1,
   });
 
   String getDescription() {
-    final elementNames = requiredElements.map((e) => e.label).join(", ");
+    final parts = <String>[];
+    if (requiredElements.isNotEmpty) {
+      parts.add(requiredElements.map((e) => e.label).join(", "));
+    }
+    if (requiredRoles.isNotEmpty) {
+      parts.add(requiredRoles.map((r) => r.label).join(", "));
+    }
     final targetName = target == PrerequisiteTarget.teammate ? "Takım Arkadaşı" : "Rakip";
-    return "Gereksinim: $elementNames ($targetName)";
+    return "Gereksinim: ${parts.join(' / ')} ($targetName)";
   }
 
   Map<String, dynamic> toMap() {
     return {
       'target': target.name,
       'requiredElements': requiredElements.map((e) => e.name).toList(),
+      'requiredRoles': requiredRoles.map((r) => r.name).toList(),
       'minCount': minCount,
     };
   }
@@ -135,6 +144,9 @@ class SkillPrerequisite {
       target: PrerequisiteTarget.fromString(map['target'] as String),
       requiredElements: (map['requiredElements'] as List<dynamic>)
           .map((e) => HeroElement.fromString(e as String))
+          .toList(),
+      requiredRoles: (map['requiredRoles'] as List<dynamic>? ?? [])
+          .map((r) => HeroRole.fromString(r as String))
           .toList(),
       minCount: map['minCount'] as int,
     );
@@ -207,6 +219,9 @@ class HeroCardEntity {
   final int bonusAttack;
   final int bonusDefense;
   final List<SkillEntity> skillCards;
+  /// users/{uid}/heroes/{userHeroDocId} — XP güncellemesi için saklanır.
+  /// Global heroes koleksiyonundan yüklenen kahramanlarda boş kalır.
+  final String userHeroDocId;
 
   const HeroCardEntity({
     required this.id,
@@ -224,6 +239,7 @@ class HeroCardEntity {
     this.bonusAttack = 0,
     this.bonusDefense = 0,
     this.skillCards = const [],
+    this.userHeroDocId = '',
   });
 
   /// Returns true if the hero is still able to fight.
@@ -288,6 +304,7 @@ class HeroCardEntity {
       bonusAttack: bonusAttack ?? this.bonusAttack,
       bonusDefense: bonusDefense ?? this.bonusDefense,
       skillCards: skillCards ?? this.skillCards,
+      userHeroDocId: userHeroDocId,
     );
   }
 
@@ -308,7 +325,7 @@ class HeroCardEntity {
   factory HeroCardEntity.fromMap(Map<String, dynamic> map, {List<SkillEntity> skills = const []}) {
     final xp = map['xp'] as int? ?? Random().nextInt(10000);
     final hp = map['hp'] as int? ?? 100; // Yeni yapı: hp
-    
+
     // Mevcut seviyeye göre maksimum canı hesapla
     final level = 1 + (xp ~/ 1000);
     final levelMultiplier = 1 + level * 0.1;
@@ -323,13 +340,14 @@ class HeroCardEntity {
       xp: xp,
       cp: hp,
       health: maxHealth,
-      attackPower: map['atk'] as int? ?? 10, // Yeni yapı: atk
-      defensePower: map['def'] as int? ?? 5,  // Yeni yapı: def
+      attackPower: map['atk'] as int? ?? 10,
+      defensePower: map['def'] as int? ?? 5,
       imageUrl: map['imageUrl'] as String? ?? '🎴',
       kut: 0,
       bonusAttack: 0,
       bonusDefense: 0,
       skillCards: skills,
+      userHeroDocId: map['userHeroDocId'] as String? ?? '',
     );
   }
 }

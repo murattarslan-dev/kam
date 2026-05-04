@@ -17,7 +17,12 @@ class ApplyPlayerAttackUseCase {
     final rawDamage = (attacker.currentAttackPower * attacker.element.getDamageMultiplier(target.element)).round();
     final defenseReduction = (target.currentDefensePower).round();
     final damage = max(1, rawDamage - defenseReduction);
-    final newHealth = (target.health - damage).clamp(0, target.currentCp).toDouble();
+
+    // Düşman tarafında hasar emme kontrolü
+    final soakResult = _handleBuffsUseCase.calculateDamageSoak(currentState, target.id, damage, isPlayerTarget: false);
+    final finalDamage = soakResult.remainingDamage;
+
+    final newHealth = (target.health - finalDamage).clamp(0, target.currentCp).toDouble();
 
     int earnedKut = 0;
     if (newHealth <= 0) {
@@ -25,7 +30,7 @@ class ApplyPlayerAttackUseCase {
     }
 
     // Düşman takımını güncelle
-    final updatedEnemyTeam = List<HeroCardEntity>.from(currentState.enemyTeam);
+    List<HeroCardEntity> updatedEnemyTeam = List<HeroCardEntity>.from(currentState.enemyTeam);
     final targetIndex = updatedEnemyTeam.indexWhere((e) => e.id == target.id);
     if (targetIndex != -1) {
       updatedEnemyTeam[targetIndex] = target.copyWith(health: newHealth.toInt());
@@ -35,26 +40,37 @@ class ApplyPlayerAttackUseCase {
     final updatedPlayerTeam = List<HeroCardEntity>.from(currentState.playerTeam);
     final attackerIndex = updatedPlayerTeam.indexWhere((p) => p.id == attacker.id);
     if (attackerIndex != -1) {
-       updatedPlayerTeam[attackerIndex] = attacker.copyWith(kut: attacker.kut + earnedKut);
+      updatedPlayerTeam[attackerIndex] = attacker.copyWith(kut: attacker.kut + earnedKut);
     }
 
-    final newLog = "${attacker.name}, ${target.name} birimine $damage hasar verdi!${earnedKut > 0 ? " (+2 Kut kazandı!)" : ""}";
-    final updatedLogs = List<String>.from(currentState.battleLogs)..insert(0, newLog);
+    final logs = List<String>.from(currentState.battleLogs);
+    logs.insert(0, "${attacker.name}, ${target.name} birimine $finalDamage hasar verdi!${earnedKut > 0 ? " (+2 Kut kazandı!)" : ""}");
 
     final updatedDamageMap = Map<String, double>.from(currentState.totalDamageDealt);
-    updatedDamageMap[attacker.id] = (updatedDamageMap[attacker.id] ?? 0) + damage;
+    updatedDamageMap[attacker.id] = (updatedDamageMap[attacker.id] ?? 0) + finalDamage;
 
     final updatedActedIds = List<String>.from(currentState.actedHeroIds)..add(attacker.id);
 
     BattleInProgress nextState = currentState.copyWith(
       playerTeam: updatedPlayerTeam,
       enemyTeam: updatedEnemyTeam,
-      battleLogs: updatedLogs,
+      battleLogs: logs,
       actedHeroIds: updatedActedIds,
       totalDamageDealt: updatedDamageMap,
       clearSelection: true,
       clearAction: true,
     );
+
+    // Soak hasarını absorbe eden tüm tanklara uygula
+    if (soakResult.hasSoak) {
+      nextState = _handleBuffsUseCase.applySoakDamage(nextState, soakResult.soakers);
+      final allHeroes = [...nextState.playerTeam, ...nextState.enemyTeam];
+      for (final entry in soakResult.soakers) {
+        final soakerName = allHeroes.firstWhere((h) => h.id == entry.heroId).name;
+        final soakLog = "$soakerName takım arkadaşının yerine ${entry.amount} hasarı üstlendi! (hasar emme)";
+        nextState = nextState.copyWith(battleLogs: [soakLog, ...nextState.battleLogs]);
+      }
+    }
 
     // Hasar sonrası HP eşiği tetikleyicilerini kontrol et.
     nextState = _handleBuffsUseCase.checkHpTriggers(nextState);

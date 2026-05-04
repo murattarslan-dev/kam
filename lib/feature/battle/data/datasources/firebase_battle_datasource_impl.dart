@@ -62,8 +62,9 @@ class FirebaseBattleDataSourceImpl implements BattleDataSource {
         if (!globalHeroDoc.exists) continue;
 
         final heroData = globalHeroDoc.data() as Map<String, dynamic>;
-        heroData['id'] = userHeroDoc.id; 
-        heroData['xp'] = userXp; 
+        heroData['id'] = heroId;           // global hero doc ID — prerequisite'lerde bu kullanılıyor
+        heroData['xp'] = userXp;
+        heroData['userHeroDocId'] = userHeroDoc.id; // XP güncellemesi için
 
         // Global kahramanın yeteneklerini getir
         final skillsSnapshot = await globalHeroDoc.reference.collection('skills').get();
@@ -77,6 +78,7 @@ class FirebaseBattleDataSourceImpl implements BattleDataSource {
       }
       return userHeroes;
     } catch (e) {
+      print(e);
       return [];
     }
   }

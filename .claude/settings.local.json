@@ -24,7 +24,15 @@
       "Bash(tasklist)",
       "Bash(taskkill /F /IM dart.exe /T)",
       "Bash(taskkill /F /IM dartaotruntime.exe /T)",
-      "Bash(curl -s http://localhost:3000)"
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(node fetch_heroes.js)",
+      "Bash(Start-Process -FilePath \"flutter\" -ArgumentList \"run\", \"-d\", \"web-server\", \"--web-port\", \"8080\" -WindowStyle Hidden)",
+      "Bash(Start-Sleep -Seconds 30)",
+      "Bash(Invoke-WebRequest -Uri \"http://localhost:8080\" -TimeoutSec 5 -UseBasicParsing)",
+      "Bash(Select-Object -ExpandProperty StatusCode)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

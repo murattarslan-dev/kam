@@ -21,9 +21,8 @@ class FinalizeXpUseCase {
         
         int totalGain = damageXp + victoryXp;
         
-        if (totalGain > 0) {
-          // Firestore'u güncelle
-          await _repository.updateHeroXp(user.uid, hero.id, totalGain);
+        if (totalGain > 0 && hero.userHeroDocId.isNotEmpty) {
+          await _repository.updateHeroXp(user.uid, hero.userHeroDocId, totalGain);
         }
       }
     } catch (e) {

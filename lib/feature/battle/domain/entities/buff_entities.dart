@@ -4,6 +4,7 @@ enum BuffType {
   statChange,
   dot, // Damage over time
   hot, // Heal over time
+  damageSoak, // Absorbs a percent of incoming damage for teammates
 }
 
 enum StatType {
@@ -27,6 +28,46 @@ enum BuffTriggerCondition {
   onTurnStart,
   onTurnEnd,
   onHpBelowPercent,
+  passive, // Always active while prerequisites are met; re-evaluated every turn
+}
+
+enum BuffPrerequisiteType {
+  none,
+  heroElementIs,
+  heroRoleIs,
+  heroIdIs,           // kahramanın kendi ID'si eşleşmeli
+  hasTeammateWithElement,
+  hasTeammateWithRole,
+  hasTeammateWithId,  // belirli ID'ye sahip kahraman takımda olmalı
+  hasEnemyWithElement,
+  hasEnemyWithRole,
+}
+
+@immutable
+class BuffPrerequisite {
+  final BuffPrerequisiteType type;
+  final String value;
+
+  const BuffPrerequisite({required this.type, required this.value});
+
+  static const none = BuffPrerequisite(type: BuffPrerequisiteType.none, value: '');
+
+  factory BuffPrerequisite.fromMap(Map<String, dynamic> map) {
+    return BuffPrerequisite(
+      type: BuffPrerequisiteType.values.firstWhere(
+        (e) => e.name == (map['type'] as String? ?? 'none'),
+        orElse: () => BuffPrerequisiteType.none,
+      ),
+      value: map['value'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'type': type.name,
+      'value': value,
+    };
+  }
 }
 
 @immutable
@@ -41,6 +82,7 @@ class BuffEntity {
   final BuffTargetType targetType;
   final BuffTriggerCondition triggerCondition;
   final double? triggerValue; // e.g., 0.5 for 50% HP
+  final List<BuffPrerequisite> prerequisites; // ALL must be true
 
   const BuffEntity({
     required this.id,
@@ -53,6 +95,7 @@ class BuffEntity {
     required this.targetType,
     this.triggerCondition = BuffTriggerCondition.manual,
     this.triggerValue,
+    this.prerequisites = const [],
   });
 
   bool get isDebuff => value < 0;
@@ -69,6 +112,7 @@ class BuffEntity {
       'targetType': targetType.name,
       'triggerCondition': triggerCondition.name,
       'triggerValue': triggerValue,
+      'prerequisites': prerequisites.map((p) => p.toMap()).toList(),
     };
   }
 
@@ -98,6 +142,9 @@ class BuffEntity {
         orElse: () => BuffTriggerCondition.manual,
       ),
       triggerValue: (map['triggerValue'] as num?)?.toDouble(),
+      prerequisites: (map['prerequisites'] as List<dynamic>? ?? [])
+          .map((p) => BuffPrerequisite.fromMap(p as Map<String, dynamic>))
+          .toList(),
     );
   }
 }

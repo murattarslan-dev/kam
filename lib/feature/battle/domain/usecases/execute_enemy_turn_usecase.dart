@@ -29,7 +29,7 @@ class ExecuteEnemyTurnUseCase {
 
       // Rastgele bir hedef seç
       final target = alivePlayers[Random().nextInt(alivePlayers.length)];
-      
+
       // Animasyonu başlat
       onEmit(current.copyWith(
         currentAction: BattleAction(
@@ -46,20 +46,34 @@ class ExecuteEnemyTurnUseCase {
       final defenseReduction = (target.currentDefensePower * 0.2).round();
       final damage = max(1, rawDamage - defenseReduction);
 
-      final updatedPlayerTeam = current.playerTeam.map((p) {
+      // Oyuncu tarafında hasar emme kontrolü
+      final soakResult = _handleBuffsUseCase.calculateDamageSoak(current, target.id, damage, isPlayerTarget: true);
+      final finalDamage = soakResult.remainingDamage;
+
+      var updatedPlayerTeam = current.playerTeam.map((p) {
         if (p.id == target.id) {
-          return p.copyWith(health: (p.health - damage).clamp(0, p.currentCp).toInt());
+          return p.copyWith(health: (p.health - finalDamage).clamp(0, p.currentCp).toInt());
         }
         return p;
       }).toList();
 
-      final log = "${enemy.name} hiddetle saldırdı: ${target.name} $damage hasar aldı!";
+      final logs = <String>["${enemy.name} hiddetle saldırdı: ${target.name} $finalDamage hasar aldı!"];
 
       current = current.copyWith(
         playerTeam: updatedPlayerTeam,
-        battleLogs: [log, ...current.battleLogs],
+        battleLogs: [...logs, ...current.battleLogs],
         clearAction: true,
       );
+
+      // Soak hasarını absorbe eden tüm tanklara uygula
+      if (soakResult.hasSoak) {
+        current = _handleBuffsUseCase.applySoakDamage(current, soakResult.soakers);
+        for (final entry in soakResult.soakers) {
+          final soakerName = current.playerTeam.firstWhere((h) => h.id == entry.heroId).name;
+          final soakLog = "$soakerName takım arkadaşının yerine ${entry.amount} hasarı üstlendi! (hasar emme)";
+          current = current.copyWith(battleLogs: [soakLog, ...current.battleLogs]);
+        }
+      }
 
       // Hasar sonrası HP eşiği tetikleyicilerini kontrol et.
       current = _handleBuffsUseCase.checkHpTriggers(current);
@@ -88,6 +102,9 @@ class ExecuteEnemyTurnUseCase {
 
     // 4. Yeni tur başında tetiklenen buff'ları kontrol et.
     current = _handleBuffsUseCase.checkAutoBuffs(current, BuffTriggerCondition.onTurnStart);
+
+    // 5. Passive buff'ları yeni tur başında yeniden değerlendir.
+    current = _handleBuffsUseCase.checkPassiveBuffs(current);
 
     // Yeni turda oyuncunun yaşayan karakterlerine +1 Kut (DoT sonrası güncel state üzerinden)
     final updatedPlayerTeam = current.playerTeam.map((p) {
