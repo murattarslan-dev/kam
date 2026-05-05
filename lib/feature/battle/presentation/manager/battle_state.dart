@@ -47,8 +47,9 @@ final class BattleInProgress extends BattleState {
   final List<String> battleLogs;   // Savaş sırasında gerçekleşen olayların metin listesi
 
   // İstatistik Takibi (Opsiyonel Detaylar)
-  final Map<String, double> totalDamageDealt; // Kahraman ID bazlı toplam verilen hasar
-  final Map<String, int> turnsSinceEffect;    // Buff/Debuff süre takibi için
+  final Map<String, double> totalDamageDealt;    // Kahraman ID bazlı toplam verilen hasar
+  final Map<String, double> totalDamageReceived; // Kahraman ID bazlı toplam alınan hasar
+  final Map<String, int> turnsSinceEffect;        // Buff/Debuff süre takibi için
   
   // Yetenek Takibi
   final List<String> usedSkillIds; // Bu savaş boyunca kullanılmış Töz kartlarının ID'leri
@@ -63,6 +64,9 @@ final class BattleInProgress extends BattleState {
   // Yedek Kadro
   final List<HeroCardEntity> benchHeroes; // Sahada olmayan, değiştirilebilir kahramanlar
 
+  // Firestore battle log doc id (aktif savaş kaydı)
+  final String? battleId;
+
   const BattleInProgress({
     required this.playerTeam,
     required this.enemyTeam,
@@ -73,12 +77,14 @@ final class BattleInProgress extends BattleState {
     this.selectedTargetIndex,
     this.battleLogs = const ["Savaş başladı!"],
     this.totalDamageDealt = const {},
+    this.totalDamageReceived = const {},
     this.turnsSinceEffect = const {},
     this.usedSkillIds = const [],
     this.currentAction,
     this.allBuffs = const [],
     this.activeBuffs = const [],
     this.benchHeroes = const [],
+    this.battleId,
   });
 
   /// State'i güncellerken değişmeyen alanları korumamızı sağlayan yardımcı metod
@@ -92,12 +98,14 @@ final class BattleInProgress extends BattleState {
     int? selectedTargetIndex,
     List<String>? battleLogs,
     Map<String, double>? totalDamageDealt,
+    Map<String, double>? totalDamageReceived,
     Map<String, int>? turnsSinceEffect,
     List<String>? usedSkillIds,
     BattleAction? currentAction,
     List<BuffEntity>? allBuffs,
     List<ActiveBuff>? activeBuffs,
     List<HeroCardEntity>? benchHeroes,
+    String? battleId,
     bool clearSelection = false,
     bool clearTarget = false,
     bool clearAction = false,
@@ -112,12 +120,14 @@ final class BattleInProgress extends BattleState {
       selectedTargetIndex: (clearSelection || clearTarget) ? null : (selectedTargetIndex ?? this.selectedTargetIndex),
       battleLogs: battleLogs ?? this.battleLogs,
       totalDamageDealt: totalDamageDealt ?? this.totalDamageDealt,
+      totalDamageReceived: totalDamageReceived ?? this.totalDamageReceived,
       turnsSinceEffect: turnsSinceEffect ?? this.turnsSinceEffect,
       usedSkillIds: usedSkillIds ?? this.usedSkillIds,
       currentAction: clearAction ? null : (currentAction ?? this.currentAction),
       allBuffs: allBuffs ?? this.allBuffs,
       activeBuffs: activeBuffs ?? this.activeBuffs,
       benchHeroes: benchHeroes ?? this.benchHeroes,
+      battleId: battleId ?? this.battleId,
     );
   }
 
@@ -128,12 +138,28 @@ final class BattleInProgress extends BattleState {
 final class BattleResult extends BattleState {
   final String message;
   final bool isVictory;
-  final List<String> rewards; // Savaş sonu kazanılan ganimetler
+  final List<String> rewards;
+
+  // Özet ekranı için savaş istatistikleri
+  final List<HeroCardEntity> playerTeam;
+  final List<HeroCardEntity> benchHeroes;
+  final Map<String, double> totalDamageDealt;
+  final Map<String, double> totalDamageReceived;
+  final Map<String, int> heroXpGained; // heroId → kazanılan XP
+  final List<ActiveBuff> activeBuffs;
+  final List<BuffEntity> allBuffs;
 
   const BattleResult({
     required this.message,
     required this.isVictory,
     this.rewards = const [],
+    this.playerTeam = const [],
+    this.benchHeroes = const [],
+    this.totalDamageDealt = const {},
+    this.totalDamageReceived = const {},
+    this.heroXpGained = const {},
+    this.activeBuffs = const [],
+    this.allBuffs = const [],
   });
 }
 

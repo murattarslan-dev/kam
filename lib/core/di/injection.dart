@@ -4,6 +4,9 @@ import '../../feature/battle/domain/repository/battle_repository.dart';
 import '../../feature/battle/data/repository/battle_repository_impl.dart';
 import '../../feature/battle/data/datasources/battle_datasource.dart';
 import '../../feature/battle/data/datasources/firebase_battle_datasource_impl.dart';
+import '../../feature/battle/data/datasources/battle_log_datasource.dart';
+import '../../feature/battle/data/datasources/firebase_battle_log_datasource_impl.dart';
+import '../../feature/battle/domain/usecases/log_battle_event_usecase.dart';
 import '../../feature/battle/presentation/manager/battle_cubit.dart';
 import '../../feature/battle/domain/usecases/start_battle_usecase.dart';
 import '../../feature/battle/domain/usecases/select_hero_usecase.dart';
@@ -26,6 +29,7 @@ Future<void> setupLocator() async {
 
   // Data - DataSources
   sl.registerLazySingleton<BattleDataSource>(() => FirebaseBattleDataSourceImpl());
+  sl.registerLazySingleton<BattleLogDataSource>(() => FirebaseBattleLogDataSourceImpl());
 
   // Data - Repositories
   sl.registerLazySingleton<BattleRepository>(() => BattleRepositoryImpl(sl()));
@@ -41,10 +45,11 @@ Future<void> setupLocator() async {
   sl.registerLazySingleton(() => FinalizeXpUseCase(sl()));
   sl.registerLazySingleton(() => SwapHeroUseCase(sl()));
   sl.registerLazySingleton(() => FetchUserHeroesUseCase(sl()));
+  sl.registerFactory(() => LogBattleEventUseCase(sl()));
 
   // Presentation - Cubit
   sl.registerFactory(() => BattleCubit(
-    sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(),
+    sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(),
   ));
 
   //----------------------------------------------------------------------------

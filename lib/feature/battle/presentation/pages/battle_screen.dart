@@ -515,17 +515,254 @@ class _BattleViewState extends State<BattleView> {
   }
 
   Widget _buildResultView(BuildContext context, BattleResult state) {
-    return Center(
+    final isVictory = state.isVictory;
+    final accent = isVictory ? Colors.amber : Colors.redAccent;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(state.isVictory ? LucideIcons.trophy : LucideIcons.skull, size: 100, color: state.isVictory ? Colors.amber : Colors.redAccent),
-          const SizedBox(height: 20),
-          Text(state.isVictory ? "ZAFER" : "MAĞLUBİYET", style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)),
+          // Başlık
+          Icon(isVictory ? LucideIcons.trophy : LucideIcons.skull, size: 72, color: accent),
+          const SizedBox(height: 12),
+          Text(
+            isVictory ? "ZAFER" : "MAĞLUBİYET",
+            style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: accent, letterSpacing: 4),
+          ),
+          const SizedBox(height: 6),
+          Text(state.message, style: const TextStyle(fontSize: 14, color: Colors.white70)),
+          const SizedBox(height: 28),
+
+          // Kahraman İstatistikleri — sahada oynayan kahramanlar
+          _SectionHeader(title: "Kahraman İstatistikleri", icon: LucideIcons.swords),
+          const SizedBox(height: 8),
+          if (state.playerTeam.isEmpty)
+            const Text("Veri yok", style: TextStyle(color: Colors.white38))
+          else
+            ...state.playerTeam.map((hero) => _HeroStatCard(
+              hero: hero,
+              damageDealt: (state.totalDamageDealt[hero.id] ?? 0).round(),
+              damageReceived: (state.totalDamageReceived[hero.id] ?? 0).round(),
+              xpGained: state.heroXpGained[hero.id] ?? 0,
+              isBench: false,
+            )),
+
+          // Yedek kadro
+          if (state.benchHeroes.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _SectionHeader(title: "Yedek Kadro", icon: LucideIcons.users),
+            const SizedBox(height: 8),
+            ...state.benchHeroes.map((hero) => _HeroStatCard(
+              hero: hero,
+              damageDealt: (state.totalDamageDealt[hero.id] ?? 0).round(),
+              damageReceived: (state.totalDamageReceived[hero.id] ?? 0).round(),
+              xpGained: state.heroXpGained[hero.id] ?? 0,
+              isBench: true,
+            )),
+          ],
+
+          // Aktif Buff/Debuff
+          if (state.activeBuffs.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            _SectionHeader(title: "Aktif Etki Alanları", icon: LucideIcons.zap),
+            const SizedBox(height: 8),
+            ...state.activeBuffs.map((ab) {
+              final buff = state.allBuffs.where((b) => b.id == ab.buffId).firstOrNull;
+              final targetHero = state.playerTeam.where((h) => h.id == ab.targetHeroId).firstOrNull;
+              return _BuffRow(
+                buffName: buff?.name ?? ab.buffId,
+                targetName: targetHero?.name ?? ab.targetHeroId,
+                remainingTurns: ab.remainingTurns,
+              );
+            }),
+          ],
+
+          const SizedBox(height: 36),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => context.go('/team-setup'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accent,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2),
+              ),
+              child: const Text("TEKRAR OYNA"),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  const _SectionHeader({required this.title, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.white54),
+        const SizedBox(width: 8),
+        Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white54, letterSpacing: 1.5)),
+        const SizedBox(width: 8),
+        const Expanded(child: Divider(color: Colors.white12)),
+      ],
+    );
+  }
+}
+
+class _HeroStatCard extends StatelessWidget {
+  final HeroCardEntity hero;
+  final int damageDealt;
+  final int damageReceived;
+  final int xpGained;
+  final bool isBench;
+
+  const _HeroStatCard({
+    required this.hero,
+    required this.damageDealt,
+    required this.damageReceived,
+    required this.xpGained,
+    required this.isBench,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(hero.imageUrl, style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Row(
+                  children: [
+                    Text(hero.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    if (isBench) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text("yedek", style: TextStyle(fontSize: 9, color: Colors.white38, letterSpacing: 0.5)),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  "+$xpGained XP",
+                  style: const TextStyle(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
-          Text(state.message, style: const TextStyle(fontSize: 18)),
-          const SizedBox(height: 40),
-          ElevatedButton(onPressed: () => context.go('/team-setup'), child: const Text("TEKRAR OYNA")),
+          Row(
+            children: [
+              _StatPill(icon: LucideIcons.swords, label: "Verilen Hasar", value: damageDealt, color: Colors.orangeAccent),
+              const SizedBox(width: 8),
+              _StatPill(icon: LucideIcons.shieldAlert, label: "Alınan Hasar", value: damageReceived, color: Colors.redAccent),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int value;
+  final Color color;
+
+  const _StatPill({required this.icon, required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.8), letterSpacing: 0.5)),
+                  Text("$value", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BuffRow extends StatelessWidget {
+  final String buffName;
+  final String targetName;
+  final int remainingTurns;
+
+  const _BuffRow({required this.buffName, required this.targetName, required this.remainingTurns});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.purpleAccent.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.purpleAccent.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.sparkles, size: 14, color: Colors.purpleAccent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(
+              TextSpan(children: [
+                TextSpan(text: buffName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
+                TextSpan(text: "  ·  $targetName", style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              ]),
+            ),
+          ),
+          if (remainingTurns >= 0)
+            Text("$remainingTurns tur", style: const TextStyle(fontSize: 11, color: Colors.white38)),
         ],
       ),
     );

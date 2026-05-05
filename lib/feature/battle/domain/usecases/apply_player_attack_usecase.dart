@@ -78,13 +78,30 @@ class ApplyPlayerAttackUseCase {
     return _processTurnEnd(nextState);
   }
 
+  static Map<String, int> _computeXpGains(BattleInProgress state, {required bool isVictory}) {
+    final result = <String, int>{};
+    for (final hero in state.playerTeam) {
+      final dmgXp = (state.totalDamageDealt[hero.id] ?? 0).round();
+      final bonusXp = isVictory ? 300 : 0;
+      result[hero.id] = dmgXp + bonusXp;
+    }
+    return result;
+  }
+
   BattleState _processTurnEnd(BattleInProgress nextState) {
     // 1. Kazanma Kontrolü
     if (nextState.enemyTeam.every((e) => !e.isAlive)) {
-      return const BattleResult(
+      return BattleResult(
         message: "ZAFER! Karanlık ordu bozguna uğratıldı.",
         isVictory: true,
-        rewards: ["100 Altın", "Kadim Ruh Parçası"],
+        rewards: const ["100 Altın", "Kadim Ruh Parçası"],
+        playerTeam: nextState.playerTeam,
+        benchHeroes: nextState.benchHeroes,
+        totalDamageDealt: nextState.totalDamageDealt,
+        totalDamageReceived: nextState.totalDamageReceived,
+        heroXpGained: _computeXpGains(nextState, isVictory: true),
+        activeBuffs: nextState.activeBuffs,
+        allBuffs: nextState.allBuffs,
       );
     }
 

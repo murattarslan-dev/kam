@@ -9,6 +9,16 @@ class ExecuteEnemyTurnUseCase {
 
   ExecuteEnemyTurnUseCase(this._handleBuffsUseCase);
 
+  static Map<String, int> _computeXpGains(BattleInProgress state, {required bool isVictory}) {
+    final result = <String, int>{};
+    for (final hero in state.playerTeam) {
+      final dmgXp = (state.totalDamageDealt[hero.id] ?? 0).round();
+      final bonusXp = isVictory ? 300 : 0;
+      result[hero.id] = dmgXp + bonusXp;
+    }
+    return result;
+  }
+
   Future<void> execute({
     required BattleInProgress currentState,
     required Function(BattleState) onEmit,
@@ -57,10 +67,14 @@ class ExecuteEnemyTurnUseCase {
         return p;
       }).toList();
 
+      final updatedReceivedMap = Map<String, double>.from(current.totalDamageReceived);
+      updatedReceivedMap[target.id] = (updatedReceivedMap[target.id] ?? 0) + finalDamage;
+
       final logs = <String>["${enemy.name} hiddetle saldırdı: ${target.name} $finalDamage hasar aldı!"];
 
       current = current.copyWith(
         playerTeam: updatedPlayerTeam,
+        totalDamageReceived: updatedReceivedMap,
         battleLogs: [...logs, ...current.battleLogs],
         clearAction: true,
       );
@@ -83,7 +97,17 @@ class ExecuteEnemyTurnUseCase {
       // Kaybetme Kontrolü
       if (current.playerTeam.every((p) => !p.isAlive)) {
         await onFinalize(false);
-        onEmit(const BattleResult(message: "MAĞLUBİYET... Kut elimizden kayıp gitti.", isVictory: false));
+        onEmit(BattleResult(
+          message: "MAĞLUBİYET... Kut elimizden kayıp gitti.",
+          isVictory: false,
+          playerTeam: current.playerTeam,
+          benchHeroes: current.benchHeroes,
+          totalDamageDealt: current.totalDamageDealt,
+          totalDamageReceived: current.totalDamageReceived,
+          heroXpGained: _computeXpGains(current, isVictory: false),
+          activeBuffs: current.activeBuffs,
+          allBuffs: current.allBuffs,
+        ));
         return;
       }
     }
