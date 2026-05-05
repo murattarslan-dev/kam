@@ -212,7 +212,8 @@ class _BattleViewState extends State<BattleView> {
       ),
       child: Scaffold(
         backgroundColor: const Color(0xFF020617),
-        body: BlocBuilder<BattleCubit, BattleState>(
+        body: SafeArea(
+          child: BlocBuilder<BattleCubit, BattleState>(
           builder: (context, state) {
             if (state is BattleInitial || state is BattleLoading) {
               return const Center(child: CircularProgressIndicator(color: Colors.deepPurple));
@@ -227,19 +228,27 @@ class _BattleViewState extends State<BattleView> {
                   if (isPortrait)
                     Column(
                       children: [
-                        Expanded(flex: 3, child: _buildArena(context, state)),
-                        if (context.screenHeight > 700)
-                          Expanded(flex: 1, child: _buildSidebar(context, state, isPortrait: true))
-                        else
-                          SizedBox(height: 120, child: _buildSidebar(context, state, isPortrait: true)),
+                        Expanded(
+                          flex: context.responsive<int>(5, tablet: 3),
+                          child: _buildArena(context, state),
+                        ),
+                        Expanded(
+                          flex: context.responsive<int>(4, tablet: 1),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 140),
+                            child: _buildSidebar(context, state, isPortrait: true),
+                          ),
+                        ),
                       ],
                     )
                   else
                     Row(
                       children: [
-                        Expanded(flex: 3, child: _buildArena(context, state)),
+                        Expanded(child: _buildArena(context, state)),
                         SizedBox(
-                          width: MediaQuery.of(context).size.width * 0.3,
+                          width: (MediaQuery.of(context).size.width *
+                                  context.responsive<double>(0.38, tablet: 0.3))
+                              .clamp(220.0, 380.0),
                           child: _buildSidebar(context, state, isPortrait: false),
                         ),
                       ],
@@ -293,6 +302,7 @@ class _BattleViewState extends State<BattleView> {
             }
             return const SizedBox.shrink();
           },
+        ),
         ),
       ),
     );
@@ -365,7 +375,11 @@ class _BattleViewState extends State<BattleView> {
   }
 
   Widget _buildTeamRow(BuildContext context, List<dynamic> team, bool isEnemy, BattleInProgress state) {
-    return Row(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.symmetric(horizontal: context.pagePadding),
+      child: Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(team.length, (index) {
         final card = team[index];
@@ -389,6 +403,7 @@ class _BattleViewState extends State<BattleView> {
           ),
         );
       }),
+    ),
     );
   }
 
@@ -419,8 +434,8 @@ class _BattleViewState extends State<BattleView> {
             style: const TextStyle(color: Colors.tealAccent, fontSize: 16),
           ),
           content: SizedBox(
-            width: 400,
-            height: 300,
+            width: dContext.dialogWidth(),
+            height: dContext.dialogHeight(max: 320),
             child: ListView.builder(
               itemCount: state.benchHeroes.length,
               itemBuilder: (_, index) {
@@ -464,8 +479,8 @@ class _BattleViewState extends State<BattleView> {
           backgroundColor: const Color(0xFF0F172A),
           title: Text("Töz'ü Açığa Çıkar - Kut: ${hero.kut}", style: const TextStyle(color: Colors.purpleAccent, fontSize: 16)),
           content: SizedBox(
-            width: 400,
-            height: 300,
+            width: dContext.dialogWidth(),
+            height: dContext.dialogHeight(max: 320),
             child: ListView.builder(
               itemCount: hero.skillCards.length,
               itemBuilder: (_, index) {

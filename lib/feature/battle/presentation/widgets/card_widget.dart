@@ -36,7 +36,7 @@ class KamCardWidget extends StatelessWidget {
 
     // Responsive boyutlar
     final double cardWidth = overrideWidth ?? context.responsive(
-      context.screenWidth * 0.28, // Mobil için ekranın %28'i
+      (context.screenWidth * 0.28).clamp(78.0, 130.0), // Mobil: ekranın %28'i, küçük telefonlarda min 78
       tablet: 140.0,
       desktop: 160.0,
     );
@@ -113,9 +113,12 @@ class KamCardWidget extends StatelessWidget {
                             Center(
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 40),
-                                child: Text(
-                                  card.isAlive ? _getElementEmoji(card.element) : "👻",
-                                  style: const TextStyle(fontSize: 48),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    card.isAlive ? _getElementEmoji(card.element) : "👻",
+                                    style: TextStyle(fontSize: (cardWidth * 0.42).clamp(28.0, 56.0)),
+                                  ),
                                 ),
                               ),
                             ),
@@ -148,12 +151,12 @@ class KamCardWidget extends StatelessWidget {
                                 border: Border.all(color: Colors.redAccent, width: 2),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text(
+                              child: Text(
                                 "ÖLÜ",
                                 style: TextStyle(
                                   color: Colors.redAccent,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                  fontSize: context.responsive(13.0, tablet: 16.0),
                                   letterSpacing: 1,
                                 ),
                               ),

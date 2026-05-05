@@ -31,9 +31,23 @@ class KamApp extends StatelessWidget {
       // GoRouter yapılandırması
       routerConfig: AppRouter.router,
 
-      // Temel Tema Ayarları (Gelecekte burayı özelleştirebiliriz)
+      // Sistem yazı tipi ölçeğini sınırla (mobil layout korunsun)
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        final clamped = mq.textScaler.clamp(
+          minScaleFactor: 0.85,
+          maxScaleFactor: 1.1,
+        );
+        return MediaQuery(
+          data: mq.copyWith(textScaler: clamped),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+
+      // Temel Tema Ayarları (Mobil odaklı kompakt yoğunluk)
       theme: ThemeData(
         useMaterial3: true,
+        visualDensity: VisualDensity.compact,
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,
           brightness: Brightness.dark, // Fantastik atmosfer için karanlık tema

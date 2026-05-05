@@ -5,6 +5,7 @@ import '../../domain/entities/hero_entities.dart';
 import '../../domain/usecases/fetch_user_heroes_usecase.dart';
 import '../widgets/card_widget.dart';
 import 'package:kam/core/di/injection.dart';
+import 'package:kam/core/util/responsive_helper.dart';
 
 class TeamSetupScreen extends StatefulWidget {
   const TeamSetupScreen({super.key});
@@ -89,8 +90,13 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
   // 3 kart yan yana, 12px yatay padding, kartın kendi 4px marjini dahil
   double _cardWidth(BuildContext context) {
     final screenW = MediaQuery.of(context).size.width;
-    // 3 * (cardW + 8) + 24 = screenW  →  cardW = (screenW - 48) / 3
-    return ((screenW - 48.0) / 3).clamp(80.0, 130.0);
+    // As takımı 3 yuva yan yana — mobilde min 70, tablette üst sınır artar.
+    final cols = 3;
+    final available = screenW - 32; // sayfa kenar boşlukları
+    final raw = (available / cols) - 8; // kart marjını çıkar
+    final maxW = context.responsive<double>(120, tablet: 140, desktop: 160);
+    final minW = context.isSmallPhone ? 64.0 : 72.0;
+    return raw.clamp(minW, maxW);
   }
 
   @override
@@ -185,23 +191,23 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+      padding: EdgeInsets.fromLTRB(context.pagePadding + 4, 12, context.pagePadding + 4, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'TAKIM HAZIRLA',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 20,
+              fontSize: context.titleFont,
               fontWeight: FontWeight.bold,
               letterSpacing: 4,
             ),
           ),
           const SizedBox(height: 2),
-          const Text(
+          Text(
             'Kahraman seç → yuvaya ekle  ·  Sürükle → sırala  ·  Kart tıkla → çıkar',
-            style: TextStyle(color: Colors.white38, fontSize: 10),
+            style: TextStyle(color: Colors.white38, fontSize: context.labelFont - 1),
           ),
         ],
       ),
@@ -242,7 +248,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.symmetric(horizontal: context.pagePadding),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.start,
             children: indices
@@ -435,8 +441,10 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: context.isSmallPhone
+            ? 2
+            : context.responsive<int>(3, tablet: 4, desktop: 5),
         childAspectRatio: 1 / 1.75, // kart oranı (margin dahil)
         crossAxisSpacing: 0,
         mainAxisSpacing: 0,
@@ -493,7 +501,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
         _slots.sublist(3, 5).whereType<HeroCardEntity>().length;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      padding: EdgeInsets.fromLTRB(context.pagePadding + 4, 10, context.pagePadding + 4, 14),
       decoration: const BoxDecoration(
         color: Color(0xFF0F172A),
         border: Border(top: BorderSide(color: Colors.white10)),
