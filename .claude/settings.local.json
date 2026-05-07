@@ -33,7 +33,14 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(node cleanup_firestore.js)",
+      "Bash(xargs grep *)",
+      "Bash(taskkill //F //IM dart.exe)",
+      "Bash(taskkill //F //IM flutter_tester.exe)",
+      "Bash(git rm *)",
+      "Bash(git restore *)",
+      "Bash(node update_skill_costs.js)"
     ]
   }
 }

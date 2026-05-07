@@ -41,6 +41,7 @@ enum BuffPrerequisiteType {
   heroElementIs,
   heroRoleIs,
   heroIdIs,           // kahramanın kendi ID'si eşleşmeli
+  heroIdIn,           // kahramanın ID'si listede olmalı (virgülle ayrılmış değer)
   hasTeammateWithElement,
   hasTeammateWithRole,
   hasTeammateWithId,  // belirli ID'ye sahip kahraman takımda olmalı

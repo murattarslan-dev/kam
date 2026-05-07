@@ -567,6 +567,8 @@ class _PrereqRow extends StatelessWidget {
       draft.type == BuffPrerequisiteType.heroIdIs ||
       draft.type == BuffPrerequisiteType.hasTeammateWithId;
 
+  bool get _wantsMultiHero => draft.type == BuffPrerequisiteType.heroIdIn;
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -646,6 +648,40 @@ class _PrereqRow extends StatelessWidget {
           draft.value = v ?? '';
           onChanged();
         },
+      );
+    }
+    if (_wantsMultiHero) {
+      final selected = draft.value
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toSet();
+      return InputDecorator(
+        decoration: const InputDecoration(
+          labelText: 'Kahramanlar (VEYA)',
+          isDense: true,
+          helperText: 'Birden fazla seç — herhangi biri eşleşirse koşul sağlanır.',
+        ),
+        child: Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: heroes.map((h) {
+            final isSel = selected.contains(h.id);
+            return FilterChip(
+              label: Text(h.name, style: const TextStyle(fontSize: 11)),
+              selected: isSel,
+              onSelected: (v) {
+                if (v) {
+                  selected.add(h.id);
+                } else {
+                  selected.remove(h.id);
+                }
+                draft.value = selected.join(',');
+                onChanged();
+              },
+            );
+          }).toList(),
+        ),
       );
     }
     return TextFormField(

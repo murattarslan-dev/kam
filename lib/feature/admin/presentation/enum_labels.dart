@@ -45,6 +45,7 @@ class EnumLabels {
     BuffPrerequisiteType.heroElementIs: 'Kahramanın elementi',
     BuffPrerequisiteType.heroRoleIs: 'Kahramanın rolü',
     BuffPrerequisiteType.heroIdIs: 'Kahraman ID',
+    BuffPrerequisiteType.heroIdIn: 'Kahramanlardan biri (VEYA)',
     BuffPrerequisiteType.hasTeammateWithElement: 'Takımda elementli müttefik',
     BuffPrerequisiteType.hasTeammateWithRole: 'Takımda rollü müttefik',
     BuffPrerequisiteType.hasTeammateWithId: 'Takımda belirli kahraman',

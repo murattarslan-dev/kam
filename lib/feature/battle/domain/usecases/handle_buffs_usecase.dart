@@ -217,6 +217,14 @@ class HandleBuffsUseCase {
         return team.any((h) => h.id != hero.id && h.isAlive && h.role.name == prereq.value);
       case BuffPrerequisiteType.heroIdIs:
         return hero.id == prereq.value;
+      case BuffPrerequisiteType.heroIdIn:
+        // value: virgülle ayrılmış kahraman ID'leri. Bu prereq tek başına
+        // OR semantiği taşır; birden fazla heroIdIn prereq'i AND'lenir.
+        return prereq.value
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .contains(hero.id);
       case BuffPrerequisiteType.hasTeammateWithId:
         final team = isPlayerTeam ? state.playerTeam : state.enemyTeam;
         return team.any((h) => h.id != hero.id && h.isAlive && h.id == prereq.value);
