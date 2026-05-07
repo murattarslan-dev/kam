@@ -64,6 +64,22 @@ class HandleBuffsUseCase {
             }
           }
         }
+      } else if (condition == BuffTriggerCondition.onTeammateHpBelowPercent && buff.triggerValue != null) {
+        // Buff sahibi: prerequisites'ı geçen kahraman. Takım arkadaşlarından
+        // biri eşiğin altındaysa sahibe uygula.
+        for (final owner in [...state.playerTeam, ...state.enemyTeam]) {
+          if (!owner.isAlive) continue;
+          final isPlayer = state.playerTeam.any((h) => h.id == owner.id);
+          if (!_isPrerequisiteMet(state, owner, isPlayer, buff.prerequisites)) continue;
+          final teammates = (isPlayer ? state.playerTeam : state.enemyTeam)
+              .where((h) => h.id != owner.id && h.isAlive);
+          final triggered = teammates.any(
+            (h) => h.currentHealth / h.currentCp <= buff.triggerValue!,
+          );
+          if (triggered && !_isAlreadyActive(state, buff.id, owner.id)) {
+            state = applyBuff(state, buff.id, owner.id);
+          }
+        }
       } else if (condition == BuffTriggerCondition.onBattleStart ||
                  condition == BuffTriggerCondition.onTurnStart ||
                  condition == BuffTriggerCondition.onTurnEnd) {
@@ -74,9 +90,76 @@ class HandleBuffsUseCase {
     return state;
   }
 
+  bool _isAlreadyActive(BattleInProgress state, String buffId, String heroId) {
+    return state.activeBuffs.any((ab) => ab.buffId == buffId && ab.targetHeroId == heroId);
+  }
+
+  /// Olay-bazlı tetikleyicileri çalıştırır (defeat, skillUsed, damageTaken).
+  /// [eventHeroId]: olayı yaşayan kahraman (ölen, hasar alan, skill kullanan).
+  /// [isEventHeroPlayer]: olay-kahraman oyuncu takımında mı.
+  ///
+  /// Eşleşen buff için "sahip" tespiti prerequisites üzerinden yapılır:
+  /// - `onDamageTaken`: sahip = eventHero (kahramanın kendisi)
+  /// - diğerleri: sahip = eventHero'nun takımındaki, prerequisites'ı geçen herkes
+  BattleInProgress checkEventTriggers(
+    BattleInProgress currentState,
+    BuffTriggerCondition condition,
+    String eventHeroId,
+    bool isEventHeroPlayer,
+  ) {
+    BattleInProgress state = currentState;
+
+    for (final buff in state.allBuffs) {
+      if (buff.triggerCondition != condition) continue;
+
+      List<HeroCardEntity> ownerCandidates;
+      if (condition == BuffTriggerCondition.onDamageTaken) {
+        // Sahip = hasar alan kahramanın kendisi.
+        final all = [...state.playerTeam, ...state.enemyTeam];
+        final self = all.where((h) => h.id == eventHeroId && h.isAlive).toList();
+        ownerCandidates = self;
+      } else if (condition == BuffTriggerCondition.onEnemyDefeated) {
+        // Sahip = düşen düşmanın KARŞI takımı (yani olay-kahramanın rakipleri).
+        final ownerTeam = isEventHeroPlayer ? state.enemyTeam : state.playerTeam;
+        ownerCandidates = ownerTeam.where((h) => h.isAlive).toList();
+      } else {
+        // onTeammateDefeated, onSkillUsed: sahip = olay-kahramanın takım arkadaşları.
+        final ownerTeam = isEventHeroPlayer ? state.playerTeam : state.enemyTeam;
+        ownerCandidates = ownerTeam.where((h) => h.isAlive && h.id != eventHeroId).toList();
+      }
+
+      for (final owner in ownerCandidates) {
+        final ownerIsPlayer = state.playerTeam.any((h) => h.id == owner.id);
+        if (!_isPrerequisiteMet(state, owner, ownerIsPlayer, buff.prerequisites)) continue;
+        if (_isAlreadyActive(state, buff.id, owner.id)) continue;
+        state = applyBuff(state, buff.id, owner.id);
+      }
+    }
+
+    return state;
+  }
+
   /// `onHpBelowPercent` tetikleyicisinin çağrı yerlerini sadeleştiren yardımcı.
   BattleInProgress checkHpTriggers(BattleInProgress state) {
-    return checkAutoBuffs(state, BuffTriggerCondition.onHpBelowPercent);
+    final s1 = checkAutoBuffs(state, BuffTriggerCondition.onHpBelowPercent);
+    return checkAutoBuffs(s1, BuffTriggerCondition.onTeammateHpBelowPercent);
+  }
+
+  /// Çağıranın kolaylığı için eventHero'nun hangi takımda olduğunu otomatik bulur.
+  BattleInProgress checkDefeatTriggers(BattleInProgress state, String defeatedHeroId) {
+    final isPlayer = state.playerTeam.any((h) => h.id == defeatedHeroId);
+    final s1 = checkEventTriggers(state, BuffTriggerCondition.onTeammateDefeated, defeatedHeroId, isPlayer);
+    return checkEventTriggers(s1, BuffTriggerCondition.onEnemyDefeated, defeatedHeroId, isPlayer);
+  }
+
+  BattleInProgress checkDamageTakenTriggers(BattleInProgress state, String damagedHeroId) {
+    final isPlayer = state.playerTeam.any((h) => h.id == damagedHeroId);
+    return checkEventTriggers(state, BuffTriggerCondition.onDamageTaken, damagedHeroId, isPlayer);
+  }
+
+  BattleInProgress checkSkillUsedTriggers(BattleInProgress state, String casterHeroId) {
+    final isPlayer = state.playerTeam.any((h) => h.id == casterHeroId);
+    return checkEventTriggers(state, BuffTriggerCondition.onSkillUsed, casterHeroId, isPlayer);
   }
 
   /// Passive buff'ların ön koşullarını değerlendirir ve uygun olanlara uygular.

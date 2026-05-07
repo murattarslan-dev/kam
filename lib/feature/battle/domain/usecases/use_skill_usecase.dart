@@ -32,33 +32,91 @@ class UseSkillUseCase {
 
     String logMsg;
 
-    switch (skill.type) {
-      case SkillType.heal:
-        // Anlık etki — buff sistemine gerek yok.
-        final newHealth = (heroAfterCost.health + skill.value).clamp(0, heroAfterCost.currentCp);
-        final healed = heroAfterCost.copyWith(health: newHealth.toInt());
-        final updatedTeam = List<HeroCardEntity>.from(state.playerTeam);
-        updatedTeam[heroIndex] = healed;
-        state = state.copyWith(playerTeam: updatedTeam);
-        logMsg = "${hero.name}, ${skill.name} kullandı! ${skill.value} Can yeniledi.";
-        break;
-      case SkillType.attackBuff:
-        state = _applySkillStatBuff(state, heroAfterCost, skill, StatType.attack);
-        logMsg = "${hero.name}, ${skill.name} kullandı! Saldırı gücü ${skill.value} arttı.";
-        break;
-      case SkillType.defenseBuff:
-        state = _applySkillStatBuff(state, heroAfterCost, skill, StatType.defense);
-        logMsg = "${hero.name}, ${skill.name} kullandı! Savunma gücü ${skill.value} arttı.";
-        break;
+    // Yeni yol: skill önceden tanımlı bir buff'ı tetikliyorsa, [SkillType]
+    // mantığını atla ve buff'ı doğrudan uygula. Hedef ve süre buff'tan gelir.
+    if (skill.triggersBuffId != null && skill.triggersBuffId!.isNotEmpty) {
+      state = _applyTriggeredBuff(state, heroAfterCost, skill.triggersBuffId!);
+      logMsg = "${hero.name}, ${skill.name} kullandı!";
+    } else {
+      switch (skill.type) {
+        case SkillType.heal:
+          // Anlık etki — buff sistemine gerek yok.
+          final newHealth = (heroAfterCost.health + skill.value).clamp(0, heroAfterCost.currentCp);
+          final healed = heroAfterCost.copyWith(health: newHealth.toInt());
+          final updatedTeam = List<HeroCardEntity>.from(state.playerTeam);
+          updatedTeam[heroIndex] = healed;
+          state = state.copyWith(playerTeam: updatedTeam);
+          logMsg = "${hero.name}, ${skill.name} kullandı! ${skill.value} Can yeniledi.";
+          break;
+        case SkillType.attackBuff:
+          state = _applySkillStatBuff(state, heroAfterCost, skill, StatType.attack);
+          logMsg = "${hero.name}, ${skill.name} kullandı! Saldırı gücü ${skill.value} arttı.";
+          break;
+        case SkillType.defenseBuff:
+          state = _applySkillStatBuff(state, heroAfterCost, skill, StatType.defense);
+          logMsg = "${hero.name}, ${skill.name} kullandı! Savunma gücü ${skill.value} arttı.";
+          break;
+      }
     }
 
     final updatedUsedSkillIds = List<String>.from(state.usedSkillIds)..add(skill.id);
     final updatedLogs = List<String>.from(state.battleLogs)..insert(0, logMsg);
 
-    return state.copyWith(
+    state = state.copyWith(
       usedSkillIds: updatedUsedSkillIds,
       battleLogs: updatedLogs,
     );
+
+    // Olay-bazlı tetik: skill kullanıldı.
+    return _handleBuffsUseCase.checkSkillUsedTriggers(state, hero.id);
+  }
+
+  /// Skill'in `triggersBuffId` alanına göre `state.allBuffs` içinden buff'ı
+  /// bulup hedeflerine uygular. Hedef seçimi buff'ın `targetType`'ına göredir.
+  BattleInProgress _applyTriggeredBuff(
+    BattleInProgress state,
+    HeroCardEntity caster,
+    String buffId,
+  ) {
+    final buffIndex = state.allBuffs.indexWhere((b) => b.id == buffId);
+    if (buffIndex == -1) return state; // Buff bulunamazsa sessizce geç.
+    final buff = state.allBuffs[buffIndex];
+
+    final isCasterPlayer = state.playerTeam.any((h) => h.id == caster.id);
+    final ownTeam = isCasterPlayer ? state.playerTeam : state.enemyTeam;
+    final foeTeam = isCasterPlayer ? state.enemyTeam : state.playerTeam;
+
+    List<String> targetIds;
+    switch (buff.targetType) {
+      case BuffTargetType.self:
+        targetIds = [caster.id];
+        break;
+      case BuffTargetType.singleTeammate:
+        // İlk yaşayan, casterdan farklı takım arkadaşı.
+        final t = ownTeam.firstWhere(
+          (h) => h.isAlive && h.id != caster.id,
+          orElse: () => caster, // Yoksa kendine uygula.
+        );
+        targetIds = [t.id];
+        break;
+      case BuffTargetType.allTeammates:
+        targetIds = ownTeam.where((h) => h.isAlive).map((h) => h.id).toList();
+        break;
+      case BuffTargetType.singleEnemy:
+        final alive = foeTeam.where((h) => h.isAlive).toList();
+        if (alive.isEmpty) return state;
+        targetIds = [alive.first.id];
+        break;
+      case BuffTargetType.allEnemies:
+        targetIds = foeTeam.where((h) => h.isAlive).map((h) => h.id).toList();
+        break;
+    }
+
+    BattleInProgress newState = state;
+    for (final id in targetIds) {
+      newState = _handleBuffsUseCase.applyBuff(newState, buffId, id);
+    }
+    return newState;
   }
 
   /// Skill kaynaklı stat-buff'ı buff sistemine kanalize eder. Bu sayede

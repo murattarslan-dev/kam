@@ -72,6 +72,12 @@ class ApplyPlayerAttackUseCase {
       }
     }
 
+    // Olay-bazlı tetikler: hedef hasar aldı; ölen düşman varsa defeat tetikleyicileri.
+    nextState = _handleBuffsUseCase.checkDamageTakenTriggers(nextState, target.id);
+    if (newHealth <= 0) {
+      nextState = _handleBuffsUseCase.checkDefeatTriggers(nextState, target.id);
+    }
+
     // Hasar sonrası HP eşiği tetikleyicilerini kontrol et.
     nextState = _handleBuffsUseCase.checkHpTriggers(nextState);
 

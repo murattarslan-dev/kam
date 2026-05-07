@@ -28,6 +28,11 @@ enum BuffTriggerCondition {
   onTurnStart,
   onTurnEnd,
   onHpBelowPercent,
+  onTeammateHpBelowPercent, // Buff sahibinin takım arkadaşlarından biri HP eşiğini geçince
+  onTeammateDefeated,       // Buff sahibinin takım arkadaşlarından biri bayılınca
+  onEnemyDefeated,          // Buff sahibinin karşı takımındaki bir düşman bayılınca
+  onSkillUsed,              // Buff sahibinin takımında bir skill kullanılınca
+  onDamageTaken,            // Buff sahibi hasar alınca
   passive, // Always active while prerequisites are met; re-evaluated every turn
 }
 

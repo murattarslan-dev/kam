@@ -164,6 +164,12 @@ class SkillEntity {
   final int value; // Heal amount, Attack Buff amount, etc.
   final SkillPrerequisite? prerequisite;
 
+  /// Eğer doluysa, skill kullanıldığında [SkillType] mantığı yerine
+  /// `buffs/{triggersBuffId}` dokümanı yüklenip [HandleBuffsUseCase.applyBuff]
+  /// üzerinden uygulanır. Hedef ve süre buff'ın kendi `targetType` /
+  /// `duration` alanlarından gelir.
+  final String? triggersBuffId;
+
   const SkillEntity({
     required this.id,
     required this.name,
@@ -172,6 +178,7 @@ class SkillEntity {
     required this.type,
     required this.value,
     this.prerequisite,
+    this.triggersBuffId,
   });
 
   Map<String, dynamic> toMap() {
@@ -183,6 +190,7 @@ class SkillEntity {
       'type': type.name,
       'value': value,
       'prerequisite': prerequisite?.toMap(),
+      'triggersBuffId': triggersBuffId,
     };
   }
 
@@ -197,6 +205,7 @@ class SkillEntity {
       prerequisite: map['prerequisite'] != null
           ? SkillPrerequisite.fromMap(map['prerequisite'] as Map<String, dynamic>)
           : null,
+      triggersBuffId: map['triggersBuffId'] as String?,
     );
   }
 }

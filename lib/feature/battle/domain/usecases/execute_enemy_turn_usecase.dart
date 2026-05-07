@@ -89,6 +89,13 @@ class ExecuteEnemyTurnUseCase {
         }
       }
 
+      // Olay-bazlı tetikler: hedef hasar aldı; ölen takım arkadaşı varsa defeat tetikleyicileri.
+      current = _handleBuffsUseCase.checkDamageTakenTriggers(current, target.id);
+      final updatedTarget = current.playerTeam.firstWhere((h) => h.id == target.id);
+      if (!updatedTarget.isAlive) {
+        current = _handleBuffsUseCase.checkDefeatTriggers(current, target.id);
+      }
+
       // Hasar sonrası HP eşiği tetikleyicilerini kontrol et.
       current = _handleBuffsUseCase.checkHpTriggers(current);
 
