@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/usecases/fetch_user_heroes_usecase.dart';
 import '../widgets/card_widget.dart';
@@ -360,7 +359,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              LucideIcons.plusCircle,
+              Icons.add_circle_outline,
               color: isDragging
                   ? Colors.white38
                   : (isMain
@@ -538,7 +537,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
                     borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: _canStart ? _startBattle : null,
-              icon: const Icon(LucideIcons.swords,
+              icon: const Icon(Icons.flash_on,
                   color: Colors.white, size: 16),
               label: const Text(
                 'SAVAŞA BAŞLA',

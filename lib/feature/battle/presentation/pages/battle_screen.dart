@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import '../manager/battle_cubit.dart';
 import '../manager/battle_state.dart';
 import '../widgets/card_widget.dart';
@@ -329,7 +328,7 @@ class _BattleViewState extends State<BattleView> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => context.read<BattleCubit>().executePlayerAttack(),
-                      icon: const Icon(LucideIcons.swords, color: Colors.white),
+                      icon: const Icon(Icons.flash_on, color: Colors.white),
                       label: const Text("SALDIR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     )
                   else
@@ -353,13 +352,13 @@ class _BattleViewState extends State<BattleView> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: () => _showSwapDialog(context, state),
-                        icon: const Icon(LucideIcons.arrowLeftRight, color: Colors.white, size: 18),
+                        icon: const Icon(Icons.swap_horiz, color: Colors.white, size: 18),
                         label: const Text("DEĞİŞTİR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   if (state.selectedHeroIndex == null && state.selectedTargetIndex == null)
                     Icon(
-                      state.isPlayerTurn ? LucideIcons.swords : LucideIcons.shieldAlert,
+                      state.isPlayerTurn ? Icons.flash_on : Icons.shield_outlined,
                       color: state.isPlayerTurn ? Colors.blue.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2),
                       size: 60,
                     ),
@@ -538,7 +537,7 @@ class _BattleViewState extends State<BattleView> {
       child: Column(
         children: [
           // Başlık
-          Icon(isVictory ? LucideIcons.trophy : LucideIcons.skull, size: 72, color: accent),
+          Icon(isVictory ? Icons.emoji_events : Icons.sentiment_very_dissatisfied, size: 72, color: accent),
           const SizedBox(height: 12),
           Text(
             isVictory ? "ZAFER" : "MAĞLUBİYET",
@@ -549,7 +548,7 @@ class _BattleViewState extends State<BattleView> {
           const SizedBox(height: 28),
 
           // Kahraman İstatistikleri — sahada oynayan kahramanlar
-          _SectionHeader(title: "Kahraman İstatistikleri", icon: LucideIcons.swords),
+          _SectionHeader(title: "Kahraman İstatistikleri", icon: Icons.flash_on),
           const SizedBox(height: 8),
           if (state.playerTeam.isEmpty)
             const Text("Veri yok", style: TextStyle(color: Colors.white38))
@@ -565,7 +564,7 @@ class _BattleViewState extends State<BattleView> {
           // Yedek kadro
           if (state.benchHeroes.isNotEmpty) ...[
             const SizedBox(height: 16),
-            _SectionHeader(title: "Yedek Kadro", icon: LucideIcons.users),
+            _SectionHeader(title: "Yedek Kadro", icon: Icons.group),
             const SizedBox(height: 8),
             ...state.benchHeroes.map((hero) => _HeroStatCard(
               hero: hero,
@@ -579,7 +578,7 @@ class _BattleViewState extends State<BattleView> {
           // Aktif Buff/Debuff
           if (state.activeBuffs.isNotEmpty) ...[
             const SizedBox(height: 24),
-            _SectionHeader(title: "Aktif Etki Alanları", icon: LucideIcons.zap),
+            _SectionHeader(title: "Aktif Etki Alanları", icon: Icons.bolt),
             const SizedBox(height: 8),
             ...state.activeBuffs.map((ab) {
               final buff = state.allBuffs.where((b) => b.id == ab.buffId).firstOrNull;
@@ -709,9 +708,9 @@ class _HeroStatCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              _StatPill(icon: LucideIcons.swords, label: "Verilen Hasar", value: damageDealt, color: Colors.orangeAccent),
+              _StatPill(icon: Icons.flash_on, label: "Verilen Hasar", value: damageDealt, color: Colors.orangeAccent),
               const SizedBox(width: 8),
-              _StatPill(icon: LucideIcons.shieldAlert, label: "Alınan Hasar", value: damageReceived, color: Colors.redAccent),
+              _StatPill(icon: Icons.shield_outlined, label: "Alınan Hasar", value: damageReceived, color: Colors.redAccent),
             ],
           ),
         ],
@@ -777,7 +776,7 @@ class _BuffRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.sparkles, size: 14, color: Colors.purpleAccent),
+          const Icon(Icons.auto_awesome, size: 14, color: Colors.purpleAccent),
           const SizedBox(width: 8),
           Expanded(
             child: Text.rich(
