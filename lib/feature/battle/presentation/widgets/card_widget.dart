@@ -110,16 +110,11 @@ class KamCardWidget extends StatelessWidget {
                         child: Stack(
                           children: [
                             _buildHeader(context),
-                            Center(
+                            Positioned.fill(
+                              bottom: 40,
                               child: Padding(
-                                padding: const EdgeInsets.only(bottom: 40),
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    card.isAlive ? _getElementEmoji(card.element) : "👻",
-                                    style: TextStyle(fontSize: (cardWidth * 0.42).clamp(28.0, 56.0)),
-                                  ),
-                                ),
+                                padding: const EdgeInsets.only(top: 28),
+                                child: _buildArt(context, cardWidth),
                               ),
                             ),
                             if (advantageMultiplier != null && advantageMultiplier != 1.0 && isSelected)
@@ -203,6 +198,41 @@ class KamCardWidget extends StatelessWidget {
               ),
           ],
         ),
+    );
+  }
+
+  /// Kart merkezindeki görsel: imageUrl doluysa Image.network,
+  /// değilse element emojisine düşer (geriye uyumlu).
+  Widget _buildArt(BuildContext context, double cardWidth) {
+    final fallback = FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        card.isAlive ? _getElementEmoji(card.element) : "👻",
+        style: TextStyle(fontSize: (cardWidth * 0.42).clamp(28.0, 56.0)),
+      ),
+    );
+    final url = card.imageUrl;
+    final isWebUrl = url.startsWith('http://') || url.startsWith('https://');
+    if (!isWebUrl) return Center(child: fallback);
+    return Image.network(
+      url,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
+      loadingBuilder: (ctx, child, progress) {
+        if (progress == null) return child;
+        return Center(
+          child: SizedBox(
+            width: 20, height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              value: progress.expectedTotalBytes != null
+                  ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                  : null,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (ctx, _, __) => Center(child: fallback),
     );
   }
 

@@ -351,7 +351,7 @@ class HeroCardEntity {
       health: maxHealth,
       attackPower: map['atk'] as int? ?? 10,
       defensePower: map['def'] as int? ?? 5,
-      imageUrl: map['imageUrl'] as String? ?? '🎴',
+      imageUrl: map['imageUrl'] as String? ?? '',
       kut: 0,
       bonusAttack: 0,
       bonusDefense: 0,

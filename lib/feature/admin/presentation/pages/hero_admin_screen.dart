@@ -385,6 +385,19 @@ class _HeroAdminScreenState extends State<HeroAdminScreen> {
                     ),
                     child: ListTile(
                       dense: true,
+                      leading: SizedBox(
+                        width: 36, height: 36,
+                        child: (data['imageUrl'] as String?)?.isNotEmpty == true
+                            ? ClipOval(
+                                child: Image.network(
+                                  data['imageUrl'] as String,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      const Icon(Icons.shield, size: 20),
+                                ),
+                              )
+                            : const Icon(Icons.shield, size: 20),
+                      ),
                       title: Text(data['name'] as String? ?? doc.id),
                       subtitle: Wrap(spacing: 4, runSpacing: 2, children: [
                         _Chip(EnumLabels.heroElement[element] ?? element.name),

@@ -661,7 +661,18 @@ class _HeroStatCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(hero.imageUrl, style: const TextStyle(fontSize: 22)),
+              SizedBox(
+                width: 32, height: 32,
+                child: hero.imageUrl.isNotEmpty
+                    ? ClipOval(
+                        child: Image.network(
+                          hero.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(Icons.shield, size: 20, color: Colors.white54),
+                        ),
+                      )
+                    : const Icon(Icons.shield, size: 20, color: Colors.white54),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Row(
