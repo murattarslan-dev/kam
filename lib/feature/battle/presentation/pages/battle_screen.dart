@@ -199,6 +199,63 @@ class BattleView extends StatefulWidget {
 }
 
 class _BattleViewState extends State<BattleView> {
+  void _showBattleLog(BuildContext context, BattleInProgress state) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.45,
+        minChildSize: 0.25,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F172A),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border(top: BorderSide(color: Colors.white12)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 36, height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                "SAVAŞ GÜNCESİ",
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey, letterSpacing: 2),
+              ),
+              const Divider(color: Colors.white10, height: 16),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  itemCount: state.battleLogs.length,
+                  reverse: true,
+                  itemBuilder: (_, i) {
+                    final idx = state.battleLogs.length - 1 - i;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text(
+                        state.battleLogs[idx],
+                        style: const TextStyle(fontSize: 12, color: Colors.white70, height: 1.4),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Theme(
@@ -225,21 +282,7 @@ class _BattleViewState extends State<BattleView> {
               return Stack(
                 children: [
                   if (isPortrait)
-                    Column(
-                      children: [
-                        Expanded(
-                          flex: context.responsive<int>(5, tablet: 3),
-                          child: _buildArena(context, state),
-                        ),
-                        Expanded(
-                          flex: context.responsive<int>(4, tablet: 1),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 140),
-                            child: _buildSidebar(context, state, isPortrait: true),
-                          ),
-                        ),
-                      ],
-                    )
+                    _buildArena(context, state)
                   else
                     Row(
                       children: [
@@ -251,6 +294,38 @@ class _BattleViewState extends State<BattleView> {
                           child: _buildSidebar(context, state, isPortrait: false),
                         ),
                       ],
+                    ),
+                  // Log button (portrait only)
+                  if (isPortrait)
+                    Positioned(
+                      bottom: 16,
+                      right: 16,
+                      child: FloatingActionButton.small(
+                        heroTag: 'log_fab',
+                        backgroundColor: const Color(0xFF1E293B),
+                        onPressed: () => _showBattleLog(context, state),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            const Icon(Icons.history_edu, color: Colors.white70, size: 20),
+                            if (state.battleLogs.isNotEmpty)
+                              Positioned(
+                                top: -4, right: -6,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueAccent,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${state.battleLogs.length}',
+                                    style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   if (state.currentAction != null)
                     BattleAnimationOverlay(
