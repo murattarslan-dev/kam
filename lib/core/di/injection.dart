@@ -18,6 +18,8 @@ import '../../feature/battle/domain/usecases/finalize_xp_usecase.dart';
 import '../../feature/battle/domain/usecases/handle_buffs_usecase.dart';
 import '../../feature/battle/domain/usecases/swap_hero_usecase.dart';
 import '../../feature/battle/domain/usecases/fetch_user_heroes_usecase.dart';
+import '../../feature/pvp/data/match_service.dart';
+import '../../feature/pvp/presentation/pvp_battle_cubit.dart';
 
 // Küresel servis bulucu (Service Locator)
 final sl = GetIt.instance;
@@ -50,6 +52,22 @@ Future<void> setupLocator() async {
   // Presentation - Cubit
   sl.registerFactory(() => BattleCubit(
     sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(),
+  ));
+
+  //----------------------------------------------------------------------------
+  // FEATURE - PvP (Multiplayer)
+  //----------------------------------------------------------------------------
+  sl.registerLazySingleton(() => MatchService());
+  sl.registerFactory(() => PvpBattleCubit(
+    sl<MatchService>(),
+    sl<BattleRepository>(),
+    sl<SelectHeroUseCase>(),
+    sl<ExecutePlayerAttackUseCase>(),
+    sl<ApplyPlayerAttackUseCase>(),
+    sl<UseSkillUseCase>(),
+    sl<SwapHeroUseCase>(),
+    sl<HandleBuffsUseCase>(),
+    sl<LogBattleEventUseCase>(),
   ));
 
   //----------------------------------------------------------------------------

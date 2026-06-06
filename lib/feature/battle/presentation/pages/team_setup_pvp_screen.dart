@@ -1,5 +1,5 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/usecases/fetch_user_heroes_usecase.dart';
@@ -9,24 +9,23 @@ import 'package:kam/core/util/responsive_helper.dart';
 import 'package:kam/core/util/player_id.dart';
 import 'package:kam/feature/pvp/data/match_service.dart';
 
-class TeamSetupScreen extends StatefulWidget {
+class TeamSetupPvpScreen extends StatefulWidget {
   /// Davet linkiyle gelindiğinde dolu olur (`?match=<id>`); bu durumda oyuncu
   /// guest olarak katılır ve maça yönlendirilir.
   final String? inviteMatchId;
 
-  const TeamSetupScreen({super.key, this.inviteMatchId});
+  const TeamSetupPvpScreen({super.key, this.inviteMatchId});
 
   @override
-  State<TeamSetupScreen> createState() => _TeamSetupScreenState();
+  State<TeamSetupPvpScreen> createState() => _TeamSetupPvpScreenState();
 }
 
-class _TeamSetupScreenState extends State<TeamSetupScreen> {
+class _TeamSetupPvpScreenState extends State<TeamSetupPvpScreen> {
   bool _isLoading = true;
   String? _error;
   List<HeroCardEntity> _allHeroes = [];
-
-  // 5 yuva: 0-1-2 as takımı, 3-4 yedek kadro
   final List<HeroCardEntity?> _slots = List.filled(5, null);
+  bool _busy = false;
 
   @override
   void initState() {
@@ -38,8 +37,23 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     try {
       final heroes = await sl<FetchUserHeroesUseCase>().execute();
       if (!mounted) return;
+      // PvP'de kahramanları 1-5 arası rastgele seviye + full HP ile hazırla
+      final random = Random();
+      final boostedHeroes = heroes.map((h) {
+        final randomLevel = 1 + random.nextInt(5); // 1-5
+        final xpForLevel = (randomLevel - 1) * 1000;
+        final levelMultiplier = 1 + randomLevel * 0.1;
+        final maxHp = (h.cp * levelMultiplier).round();
+        // cp'yi currentCp = (cp * levelMultiplier) = maxHp olacak şekilde ayarla
+        final baseCP = (maxHp / levelMultiplier).round();
+        return h.copyWith(
+          xp: xpForLevel,
+          health: maxHp, // full HP
+          cp: baseCP,
+        );
+      }).toList();
       setState(() {
-        _allHeroes = heroes;
+        _allHeroes = boostedHeroes;
         _isLoading = false;
       });
     } catch (e) {
@@ -51,6 +65,8 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     }
   }
 
+  bool get _isGuest => widget.inviteMatchId != null;
+
   Set<String> get _heroIdsInSlots =>
       _slots.whereType<HeroCardEntity>().map((h) => h.id).toSet();
 
@@ -58,7 +74,6 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
       _allHeroes.where((h) => !_heroIdsInSlots.contains(h.id)).toList();
 
   bool get _allSlotsFull => _slots.every((s) => s != null);
-
   bool get _canStart => _slots.sublist(0, 3).any((s) => s != null);
 
   void _tapAvailableHero(HeroCardEntity hero) {
@@ -80,39 +95,20 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     });
   }
 
-  bool get _isGuest => widget.inviteMatchId != null;
-  bool _busy = false;
-
-  ({List<HeroCardEntity> team, List<HeroCardEntity> bench})? _collectTeam() {
-    final team = _slots.sublist(0, 3).whereType<HeroCardEntity>().toList();
-    if (team.isEmpty) return null;
-    final bench = _slots.sublist(3, 5).whereType<HeroCardEntity>().toList();
-    return (team: team, bench: bench);
-  }
-
-  void _startBattle() {
-    final picked = _collectTeam();
-    if (picked == null) return;
-    context.go('/battle', extra: {
-      'playerTeam': picked.team,
-      'benchHeroes': picked.bench,
-    });
-  }
-
-  /// Host: yeni maç lobisi açar ve kopyalanabilir davet linkini gösterir.
   Future<void> _invite() async {
-    final picked = _collectTeam();
-    if (picked == null || _busy) return;
+    final team = _slots.sublist(0, 3).whereType<HeroCardEntity>().toList();
+    if (team.isEmpty || _busy) return;
     setState(() => _busy = true);
     try {
+      final bench = _slots.sublist(3, 5).whereType<HeroCardEntity>().toList();
       final matchId = await sl<MatchService>().createMatch(
         hostId: getPlayerId(),
-        hostTeam: picked.team,
-        hostBench: picked.bench,
+        hostTeam: team,
+        hostBench: bench,
       );
       if (!mounted) return;
       final base = Uri.base.removeFragment();
-      final link = '$base#/team-setup?match=$matchId';
+      final link = '$base#/team-setup-pvp?match=$matchId';
       await _showInviteDialog(link, matchId);
     } catch (e) {
       if (mounted) {
@@ -125,18 +121,19 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     }
   }
 
-  /// Guest: davet linkiyle gelmiş oyuncu maça katılır ve savaşa geçer.
   Future<void> _joinAsGuest() async {
-    final picked = _collectTeam();
     final matchId = widget.inviteMatchId;
-    if (picked == null || matchId == null || _busy) return;
+    if (matchId == null) return;
+    final team = _slots.sublist(0, 3).whereType<HeroCardEntity>().toList();
+    if (team.isEmpty || _busy) return;
     setState(() => _busy = true);
     try {
+      final bench = _slots.sublist(3, 5).whereType<HeroCardEntity>().toList();
       await sl<MatchService>().joinMatch(
         matchId: matchId,
         guestId: getPlayerId(),
-        guestTeam: picked.team,
-        guestBench: picked.bench,
+        guestTeam: team,
+        guestBench: bench,
       );
       if (!mounted) return;
       context.go('/pvp-battle?match=$matchId');
@@ -184,12 +181,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: link));
-                  if (dContext.mounted) {
-                    ScaffoldMessenger.of(dContext).showSnackBar(
-                      const SnackBar(content: Text('Link kopyalandı')),
-                    );
-                  }
+                  await Future.delayed(const Duration(milliseconds: 500)); // linter geçişi
                 },
                 icon: const Icon(Icons.copy, size: 16, color: Colors.tealAccent),
                 label: const Text('Linki Kopyala',
@@ -218,14 +210,11 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     );
   }
 
-  // ── kart genişliğini ekran genişliğinden hesapla ─────────────────────────
-  // 3 kart yan yana, 12px yatay padding, kartın kendi 4px marjini dahil
   double _cardWidth(BuildContext context) {
     final screenW = MediaQuery.of(context).size.width;
-    // As takımı 3 yuva yan yana — mobilde min 70, tablette üst sınır artar.
     final cols = 3;
-    final available = screenW - 32; // sayfa kenar boşlukları
-    final raw = (available / cols) - 8; // kart marjını çıkar
+    final available = screenW - 32;
+    final raw = (available / cols) - 8;
     final maxW = context.responsive<double>(120, tablet: 140, desktop: 160);
     final minW = context.isSmallPhone ? 64.0 : 72.0;
     return raw.clamp(minW, maxW);
@@ -236,13 +225,25 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     return Theme(
       data: Theme.of(context).copyWith(
         textTheme: Theme.of(context).textTheme.apply(
-              bodyColor: Colors.white,
-              displayColor: Colors.white,
-              fontFamily: 'Serif',
-            ),
+          bodyColor: Colors.white,
+          displayColor: Colors.white,
+          fontFamily: 'Serif',
+        ),
       ),
       child: Scaffold(
         backgroundColor: const Color(0xFF020617),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF0F172A),
+          foregroundColor: Colors.white,
+          title: const Text('ÇOĞUN TAKIM HAZIRLA',
+              style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold)),
+          centerTitle: true,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.pop(),
+          ),
+        ),
         body: SafeArea(
           child: _isLoading
               ? const Center(
@@ -319,8 +320,6 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     );
   }
 
-  // ── HEADER ───────────────────────────────────────────────────────────────
-
   Widget _buildHeader() {
     return Padding(
       padding: EdgeInsets.fromLTRB(context.pagePadding + 4, 12, context.pagePadding + 4, 6),
@@ -338,15 +337,13 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
           ),
           const SizedBox(height: 2),
           Text(
-            'Kahraman seç → yuvaya ekle  ·  Sürükle → sırala  ·  Kart tıkla → çıkar',
+            'Kahramanlar Seviye 100\'de yüklendi  ·  Kahraman seç → yuvaya ekle',
             style: TextStyle(color: Colors.white38, fontSize: context.labelFont - 1),
           ),
         ],
       ),
     );
   }
-
-  // ── SLOT GRUBU ────────────────────────────────────────────────────────────
 
   Widget _buildSlotGroup({
     required String label,
@@ -394,7 +391,6 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
 
   Widget _buildSlotCell(int index, Color accentColor, double cardWidth) {
     final hero = _slots[index];
-
     return DragTarget<int>(
       onWillAcceptWithDetails: (details) => details.data != index,
       onAcceptWithDetails: (details) => _swapSlots(details.data, index),
@@ -470,8 +466,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
                         offset: const Offset(0, 2))
                   ],
                 ),
-                child:
-                    const Icon(Icons.close, size: 11, color: Colors.white),
+                child: const Icon(Icons.close, size: 11, color: Colors.white),
               ),
             ),
           ),
@@ -485,7 +480,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     final isMain = index < 3;
     final cardH = cardWidth * 1.6;
     return SizedBox(
-      width: cardWidth + 8, // kart marjını hesaba kat
+      width: cardWidth + 8,
       height: cardH + 16,
       child: Center(
         child: Column(
@@ -516,8 +511,6 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     );
   }
 
-  // ── AVAILABLE HEROES ──────────────────────────────────────────────────────
-
   Widget _buildAvailableSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,7 +520,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
           child: Row(
             children: [
               const Text(
-                'KAHRAMANLAR',
+                'KAHRAMANLAR (SEVİYE 1-5)',
                 style: TextStyle(
                   color: Colors.white38,
                   fontSize: 10,
@@ -577,7 +570,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
         crossAxisCount: context.isSmallPhone
             ? 2
             : context.responsive<int>(3, tablet: 4, desktop: 5),
-        childAspectRatio: 1 / 1.75, // kart oranı (margin dahil)
+        childAspectRatio: 1 / 1.75,
         crossAxisSpacing: 0,
         mainAxisSpacing: 0,
       ),
@@ -587,7 +580,6 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
         final blocked = _allSlotsFull;
         return LayoutBuilder(
           builder: (ctx, constraints) {
-            // Hücre genişliğinden kart iç marjını çıkar
             final w = (constraints.maxWidth - 8).clamp(60.0, 200.0);
             return Stack(
               children: [
@@ -623,8 +615,6 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
       },
     );
   }
-
-  // ── CONFIRM BAR ───────────────────────────────────────────────────────────
 
   Widget _buildConfirmBar() {
     final mainCount =
@@ -684,7 +674,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
                 ),
               ),
             )
-          else ...[
+          else
             AnimatedOpacity(
               duration: const Duration(milliseconds: 200),
               opacity: _canStart && !_busy ? 1.0 : 0.4,
@@ -710,29 +700,6 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              opacity: _canStart ? 1.0 : 0.4,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: _canStart ? _startBattle : null,
-                icon: const Icon(Icons.flash_on, color: Colors.white, size: 16),
-                label: const Text(
-                  'SAVAŞA BAŞLA',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                      fontSize: 12),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );

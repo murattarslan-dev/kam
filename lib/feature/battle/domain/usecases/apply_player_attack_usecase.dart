@@ -44,7 +44,30 @@ class ApplyPlayerAttackUseCase {
     }
 
     final logs = List<String>.from(currentState.battleLogs);
-    logs.insert(0, "${attacker.name}, ${target.name} birimine $finalDamage hasar verdi!${earnedKut > 0 ? " (+2 Kut kazandı!)" : ""}");
+    // Hasar hesaplama detayı
+    final multiplier = attacker.element.getDamageMultiplier(target.element);
+    final logLines = [
+      "${attacker.name} → ${target.name}",
+      "ATK: ${attacker.currentAttackPower} × ${multiplier.toStringAsFixed(1)} = $rawDamage",
+      "DEF: ${target.currentDefensePower} (soğurma)",
+      "Ön hasar: $damage",
+    ];
+    // Soak mekanikleri göster
+    if (soakResult.hasSoak) {
+      logLines.add("Hasar Dağılımı:");
+      logLines.add("  ${target.name}: $finalDamage");
+      for (final soaker in soakResult.soakers) {
+        final allHeroes = [...currentState.playerTeam, ...currentState.enemyTeam];
+        final soakerName = allHeroes.firstWhere((h) => h.id == soaker.heroId, orElse: () => target).name;
+        logLines.add("  $soakerName (tank): ${soaker.amount}");
+      }
+    } else {
+      logLines.add("Net hasar: $finalDamage");
+    }
+    logLines.add("HP: ${target.health} → ${newHealth.toInt()}");
+    if (earnedKut > 0) logLines.add("+2 Kut kazandı!");
+
+    logs.insert(0, logLines.join(" | "));
 
     final updatedDamageMap = Map<String, double>.from(currentState.totalDamageDealt);
     updatedDamageMap[attacker.id] = (updatedDamageMap[attacker.id] ?? 0) + finalDamage;

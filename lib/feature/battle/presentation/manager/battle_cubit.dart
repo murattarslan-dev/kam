@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import '../manager/battle_state.dart';
+import '../manager/battle_cubit_base.dart';
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/usecases/start_battle_usecase.dart';
 import '../../domain/usecases/select_hero_usecase.dart';
@@ -14,7 +14,7 @@ import '../../domain/usecases/swap_hero_usecase.dart';
 import '../../domain/usecases/log_battle_event_usecase.dart';
 import '../../domain/entities/buff_entities.dart';
 
-class BattleCubit extends Cubit<BattleState> {
+class BattleCubit extends BattleCubitBase {
   final StartBattleUseCase _startBattleUseCase;
   final SelectHeroUseCase _selectHeroUseCase;
   final ExecutePlayerAttackUseCase _executePlayerAttackUseCase;
@@ -75,6 +75,7 @@ class BattleCubit extends Cubit<BattleState> {
   }
 
   /// Bir kahramanı seçme veya hedef belirleme
+  @override
   void selectHero(int index, bool isEnemy) {
     if (state is! BattleInProgress) return;
     final newState = _selectHeroUseCase.execute(state as BattleInProgress, index, isEnemy);
@@ -82,6 +83,7 @@ class BattleCubit extends Cubit<BattleState> {
   }
 
   /// Oyuncu saldırısını başlatır (Animasyonu tetikler)
+  @override
   void executePlayerAttack() {
     if (state is! BattleInProgress) return;
     final newState = _executePlayerAttackUseCase.execute(state as BattleInProgress);
@@ -89,6 +91,7 @@ class BattleCubit extends Cubit<BattleState> {
   }
 
   /// Animasyon tamamlandığında hasarı uygular
+  @override
   void onAnimationComplete() {
     if (state is! BattleInProgress) return;
     final currentState = state as BattleInProgress;
@@ -146,6 +149,7 @@ class BattleCubit extends Cubit<BattleState> {
   Completer<void>? _enemyAnimationCompleter;
 
   /// Sahadaki kahramanı yedek kadrodan biriyle değiştirir.
+  @override
   void swapHero(int fieldIndex, int benchIndex) {
     if (state is! BattleInProgress) return;
     final before = state as BattleInProgress;
@@ -169,6 +173,7 @@ class BattleCubit extends Cubit<BattleState> {
   }
 
   /// Seçilen kahraman için Töz kartı kullan
+  @override
   void useSkill(int heroIndex, SkillEntity skill) {
     if (state is! BattleInProgress) return;
     final before = state as BattleInProgress;
@@ -291,6 +296,7 @@ class BattleCubit extends Cubit<BattleState> {
   }
 
   /// UI Tarafından Töz kontrolü için yardımcı metod (Logic UseCase'de kalır)
+  @override
   bool isSkillPrerequisiteMet(HeroCardEntity hero, SkillEntity skill) {
     if (state is! BattleInProgress) return false;
     return _useSkillUseCase.isSkillPrerequisiteMet(state as BattleInProgress, hero, skill);

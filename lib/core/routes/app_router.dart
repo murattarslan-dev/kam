@@ -9,11 +9,18 @@ import '../../feature/admin/presentation/pages/users_admin_screen.dart';
 import '../../feature/admin/presentation/widgets/admin_gate.dart';
 import '../../feature/battle/domain/entities/hero_entities.dart';
 import '../../feature/battle/presentation/pages/team_setup_screen.dart';
+import '../../feature/battle/presentation/pages/team_setup_pvp_screen.dart';
 import '../../feature/battle/presentation/pages/battle_screen.dart';
+import '../../feature/home/presentation/pages/home_screen.dart';
+import '../../feature/home/presentation/pages/settings_screen.dart';
 
 class AppRouter {
+  static const String home = '/';
   static const String teamSetup = '/team-setup';
+  static const String teamSetupPvp = '/team-setup-pvp';
   static const String battle = '/battle';
+  static const String pvpBattle = '/pvp-battle';
+  static const String settings = '/settings';
   static const String admin = '/admin';
   static const String adminBuffs = '/admin/buffs';
   static const String adminHeroes = '/admin/heroes';
@@ -24,12 +31,19 @@ class AppRouter {
   static Widget _gated(Widget child) => AdminGate(child: child);
 
   static final GoRouter router = GoRouter(
-    initialLocation: teamSetup,
+    initialLocation: home,
     routes: [
+      GoRoute(
+        path: home,
+        name: 'home',
+        builder: (context, state) => const HomeScreen(),
+      ),
       GoRoute(
         path: teamSetup,
         name: 'teamSetup',
-        builder: (context, state) => const TeamSetupScreen(),
+        builder: (context, state) => TeamSetupScreen(
+          inviteMatchId: state.uri.queryParameters['match'],
+        ),
       ),
       GoRoute(
         path: battle,
@@ -41,6 +55,25 @@ class AppRouter {
             benchHeroes: extra?['benchHeroes'] as List<HeroCardEntity>?,
           );
         },
+      ),
+      GoRoute(
+        path: teamSetupPvp,
+        name: 'teamSetupPvp',
+        builder: (context, state) => TeamSetupPvpScreen(
+          inviteMatchId: state.uri.queryParameters['match'],
+        ),
+      ),
+      GoRoute(
+        path: pvpBattle,
+        name: 'pvpBattle',
+        builder: (context, state) => BattleScreen(
+          matchId: state.uri.queryParameters['match'],
+        ),
+      ),
+      GoRoute(
+        path: settings,
+        name: 'settings',
+        builder: (context, state) => const SettingsScreen(),
       ),
       GoRoute(
         path: admin,

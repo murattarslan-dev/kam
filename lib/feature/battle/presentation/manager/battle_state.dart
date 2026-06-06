@@ -25,7 +25,8 @@ final class BattleInitial extends BattleState {
 }
 
 final class BattleLoading extends BattleState {
-  const BattleLoading();
+  final String? message;
+  const BattleLoading({this.message});
 }
 
 /// Savaşın devam ettiği, tüm saha verilerini içeren ana durum
