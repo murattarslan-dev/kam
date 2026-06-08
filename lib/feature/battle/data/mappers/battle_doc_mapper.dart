@@ -159,6 +159,16 @@ class BattleDocMapper {
       }
     }
 
+    // Floating sayı için HP delta'ları (varsa).
+    final deltas = <String, int>{};
+    final rawDeltas = la?['deltas'];
+    if (rawDeltas is Map) {
+      rawDeltas.forEach((k, v) {
+        deltas[k.toString()] = (v as num).toInt();
+      });
+    }
+    final lastSeq = (la?['seq'] as num?)?.toInt();
+
     return BattleInProgress(
       playerTeam: isHostPerspective ? hostTeam : guestTeam,
       enemyTeam: isHostPerspective ? guestTeam : hostTeam,
@@ -180,6 +190,8 @@ class BattleDocMapper {
       allBuffs: allBuffs,
       currentAction: currentAction,
       battleId: battleId,
+      floatingDeltas: deltas,
+      lastActionSeq: lastSeq,
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../manager/battle_cubit.dart';
 import '../manager/battle_state.dart';
 import '../widgets/card_widget.dart';
+import '../widgets/floating_number.dart';
 import '../../domain/entities/hero_entities.dart';
 import 'package:kam/core/util/responsive_helper.dart';
 import 'package:kam/core/util/player_id.dart';
@@ -489,19 +490,40 @@ class _BattleViewState extends State<BattleView> {
         final bool isSelected = isEnemy ? state.selectedTargetIndex == index : state.selectedHeroIndex == index;
         final bool isAnimating = state.currentAction?.attacker.id == card.id || state.currentAction?.target.id == card.id;
 
+        final delta = state.floatingDeltas[card.id];
+        final showFloater = delta != null &&
+            state.currentAction == null &&
+            state.lastActionSeq != null;
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Opacity(
-            opacity: isAnimating ? 0.0 : (card.isAlive ? (hasActed ? 0.5 : 1.0) : 0.3),
-            child: KamCardWidget(
-              card: card,
-              isSelected: isSelected,
-              isEnemy: isEnemy,
-              onTap: () => context.read<BattleCubit>().selectHero(index, isEnemy),
-              onTozPressed: (!isEnemy && isSelected && state.isPlayerTurn) ? () => _showTozDialog(context, state) : null,
-              activeBuffs: state.activeBuffs,
-              allBuffs: state.allBuffs,
-            ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Opacity(
+                opacity: isAnimating ? 0.0 : (card.isAlive ? (hasActed ? 0.5 : 1.0) : 0.3),
+                child: KamCardWidget(
+                  card: card,
+                  isSelected: isSelected,
+                  isEnemy: isEnemy,
+                  onTap: () => context.read<BattleCubit>().selectHero(index, isEnemy),
+                  onTozPressed: (!isEnemy && isSelected && state.isPlayerTurn) ? () => _showTozDialog(context, state) : null,
+                  activeBuffs: state.activeBuffs,
+                  allBuffs: state.allBuffs,
+                ),
+              ),
+              if (showFloater)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Center(
+                      child: FloatingNumber(
+                        key: ValueKey('floater-${card.id}-${state.lastActionSeq}'),
+                        amount: delta,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         );
       }),

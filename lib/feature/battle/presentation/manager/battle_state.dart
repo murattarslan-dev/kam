@@ -68,6 +68,11 @@ final class BattleInProgress extends BattleState {
   // Firestore battle log doc id (aktif savaş kaydı)
   final String? battleId;
 
+  // Floating sayı animasyonu için son komutun HP delta'ları
+  // (heroId → değer; negatif = hasar, pozitif = iyileşme).
+  final Map<String, int> floatingDeltas;
+  final int? lastActionSeq;
+
   const BattleInProgress({
     required this.playerTeam,
     required this.enemyTeam,
@@ -86,6 +91,8 @@ final class BattleInProgress extends BattleState {
     this.activeBuffs = const [],
     this.benchHeroes = const [],
     this.battleId,
+    this.floatingDeltas = const {},
+    this.lastActionSeq,
   });
 
   /// State'i güncellerken değişmeyen alanları korumamızı sağlayan yardımcı metod
@@ -107,9 +114,12 @@ final class BattleInProgress extends BattleState {
     List<ActiveBuff>? activeBuffs,
     List<HeroCardEntity>? benchHeroes,
     String? battleId,
+    Map<String, int>? floatingDeltas,
+    int? lastActionSeq,
     bool clearSelection = false,
     bool clearTarget = false,
     bool clearAction = false,
+    bool clearFloatingDeltas = false,
   }) {
     return BattleInProgress(
       playerTeam: playerTeam ?? this.playerTeam,
@@ -129,6 +139,8 @@ final class BattleInProgress extends BattleState {
       activeBuffs: activeBuffs ?? this.activeBuffs,
       benchHeroes: benchHeroes ?? this.benchHeroes,
       battleId: battleId ?? this.battleId,
+      floatingDeltas: clearFloatingDeltas ? const {} : (floatingDeltas ?? this.floatingDeltas),
+      lastActionSeq: lastActionSeq ?? this.lastActionSeq,
     );
   }
 

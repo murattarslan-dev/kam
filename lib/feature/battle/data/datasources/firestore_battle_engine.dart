@@ -235,6 +235,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     if (state.actedHeroIds.contains(attacker.id)) return;
 
     final next = _applyAttack(state, attacker, target);
+    final deltas = _diffHpDeltas(state, next);
 
     final seq = ((data['seq'] as num?)?.toInt() ?? 0) + 1;
     final lastAction = <String, dynamic>{
@@ -244,6 +245,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'targetInstanceId': target.id,
       'actorSide': mySide,
       'finalDamage': next.totalDamageDealt[attacker.id]?.toInt() ?? 0,
+      'deltas': deltas,
       'message': '${attacker.name} → ${target.name}',
     };
 
@@ -283,6 +285,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       return; // skill koşulu sağlanmadıysa state değişmedi
     }
 
+    final deltas = _diffHpDeltas(state, raw);
     final seq = ((data['seq'] as num?)?.toInt() ?? 0) + 1;
     final lastAction = <String, dynamic>{
       'seq': seq,
@@ -291,6 +294,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'actorSide': mySide,
       'skillId': skill.id,
       'skillName': skill.name,
+      'deltas': deltas,
       'message': '${hero.name} ${skill.name} kullandı',
     };
 
@@ -454,6 +458,24 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
   }
 
   // ── Ortak yazma yolu ────────────────────────────────────────────────────
+
+  /// HP delta diff'i — sahnedeki ve yedek tüm kahramanlar için.
+  Map<String, int> _diffHpDeltas(BattleInProgress before, BattleInProgress after) {
+    final out = <String, int>{};
+    void diff(List<HeroCardEntity> b, List<HeroCardEntity> a) {
+      final byId = {for (final h in b) h.id: h};
+      for (final h in a) {
+        final old = byId[h.id];
+        if (old == null) continue;
+        final d = h.health - old.health;
+        if (d != 0) out[h.id] = d;
+      }
+    }
+    diff(before.playerTeam, after.playerTeam);
+    diff(before.enemyTeam, after.enemyTeam);
+    diff(before.benchHeroes, after.benchHeroes);
+    return out;
+  }
 
   bool _canAct(Map<String, dynamic>? data, String mySide) {
     if (data == null) return false;

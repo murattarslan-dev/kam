@@ -28,9 +28,13 @@ class BattleCubit extends Cubit<BattleState> {
   String _mode = '';
   List<BuffEntity> _allBuffs = const [];
 
-  int _lastAnimatedSeq = -1;
+  int _lastEmittedSeq = -1;
   int? _selectedHeroIndex;
   int? _selectedTargetIndex;
+
+  // Animasyon kuyruğu: animasyon oynarken gelen snapshot'lar burada bekler.
+  final List<Map<String, dynamic>> _pending = [];
+  bool _animating = false;
 
   StreamSubscription<Map<String, dynamic>?>? _sub;
   Timer? _heartbeat;
@@ -93,7 +97,19 @@ class BattleCubit extends Cubit<BattleState> {
   void _onSnapshot(Map<String, dynamic>? data) {
     if (data == null || isClosed) return;
 
-    // Taraf belirleme (lobide host/guest atanmadan oturup beklenebilir).
+    // Animasyon oynuyorsa snapshot'ı kuyruğa al. status==finished/aborted gibi
+    // kritik geçişler de kuyruğa girer ki sıra bozulmasın.
+    if (_animating) {
+      _pending.add(data);
+      return;
+    }
+    _process(data);
+  }
+
+  void _process(Map<String, dynamic> data) {
+    if (isClosed) return;
+
+    // Taraf belirleme.
     _mode = (data['mode'] as String?) ?? _mode;
     final hostId = data['hostId'] as String?;
     final guestId = data['guestId'] as String?;
@@ -104,6 +120,7 @@ class BattleCubit extends Cubit<BattleState> {
     }
     if (_mySide.isEmpty) {
       emit(const BattleLoading(message: 'Tarafın atanması bekleniyor...'));
+      _drainPending();
       return;
     }
 
@@ -111,6 +128,7 @@ class BattleCubit extends Cubit<BattleState> {
     if (status == 'lobby') {
       emit(const BattleLoading(message: 'Rakip bekleniyor...'));
       _ensureHeartbeat();
+      _drainPending();
       return;
     }
     if (status == 'aborted') {
@@ -127,7 +145,10 @@ class BattleCubit extends Cubit<BattleState> {
       _stopHeartbeat();
       return;
     }
-    if (status != 'in_progress') return;
+    if (status != 'in_progress') {
+      _drainPending();
+      return;
+    }
 
     _ensureHeartbeat();
 
@@ -138,15 +159,41 @@ class BattleCubit extends Cubit<BattleState> {
       allBuffs: _allBuffs,
       battleId: _battleId,
     );
-    // Animasyon yalnız yeni seq için tetiklenir.
-    if (seq <= _lastAnimatedSeq) {
-      st = st.copyWith(clearAction: true);
-    } else if (st.currentAction != null) {
-      _lastAnimatedSeq = seq;
+
+    // Aynı seq tekrar gelirse (heartbeat vb.) animasyon/floating tekrar oynamasın.
+    final isFreshAction = seq > _lastEmittedSeq;
+    if (!isFreshAction) {
+      st = st.copyWith(clearAction: true, clearFloatingDeltas: true);
+    } else {
+      _lastEmittedSeq = seq;
     }
-    // Yerel seçim durumunu yeniden bindir.
+
     st = _withLocalSelection(st);
     emit(st);
+
+    // Yeni saldırı animasyonu varsa kuyruğa geç; yoksa floating animasyonu
+    // kısa sürede biteceğinden bir sonraki snapshot'ı hemen işle.
+    if (isFreshAction && st.currentAction != null) {
+      _animating = true; // attack animation in progress
+    } else if (isFreshAction && st.floatingDeltas.isNotEmpty) {
+      // Sadece floating var (skill heal vb.) — kart üstünde 1.2 sn oynayacak.
+      _animating = true;
+      Future.delayed(const Duration(milliseconds: 1200), _finishAnimation);
+    } else {
+      _drainPending();
+    }
+  }
+
+  void _finishAnimation() {
+    if (isClosed) return;
+    _animating = false;
+    _drainPending();
+  }
+
+  void _drainPending() {
+    if (_pending.isEmpty) return;
+    final next = _pending.removeAt(0);
+    _process(next);
   }
 
   BattleInProgress _withLocalSelection(BattleInProgress st) {
@@ -220,7 +267,10 @@ class BattleCubit extends Cubit<BattleState> {
     final s = state;
     if (s is! BattleInProgress) return;
     if (s.currentAction == null) return;
+    // Saldırı animasyonu bitti. currentAction'ı temizleyip floating sayıları
+    // bırakıyoruz; floating widget'ı 1.2 sn oynayacak, ardından sıradakine.
     emit(s.copyWith(clearAction: true));
+    Future.delayed(const Duration(milliseconds: 1200), _finishAnimation);
   }
 
   void swapHero(int fieldIndex, int benchIndex) {
