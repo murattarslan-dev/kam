@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/auth/auth_service.dart';
+import '../../../../core/di/injection.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -31,37 +33,65 @@ class SettingsScreen extends StatelessWidget {
           ),
         ),
         body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const SizedBox(height: 24),
-              _buildSettingsSection(
-                title: 'YÖNETİM',
-                children: [
-                  _buildSettingsItem(
-                    context,
-                    icon: Icons.admin_panel_settings,
-                    title: 'Admin Paneli',
-                    subtitle: 'Kahraman, Buff ve Beceri Yönetimi',
-                    onTap: () => context.go('/admin'),
+          child: Builder(builder: (context) {
+            final auth = sl<AuthService>();
+            final user = auth.currentUser;
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const SizedBox(height: 24),
+                _buildSettingsSection(
+                  title: 'HESAP',
+                  children: [
+                    _buildSettingsItem(
+                      context,
+                      icon: Icons.person_outline,
+                      title: auth.displayName ?? 'Adsız',
+                      subtitle: user?.email ?? '—',
+                      onTap: null,
+                    ),
+                    _buildSettingsItem(
+                      context,
+                      icon: Icons.logout,
+                      title: 'Çıkış yap',
+                      subtitle: 'Oturumu sonlandır',
+                      onTap: () async {
+                        await auth.signOut();
+                        if (context.mounted) context.go('/');
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                if (auth.isAdmin)
+                  _buildSettingsSection(
+                    title: 'YÖNETİM',
+                    children: [
+                      _buildSettingsItem(
+                        context,
+                        icon: Icons.admin_panel_settings,
+                        title: 'Admin Paneli',
+                        subtitle: 'Kahraman, Buff ve Beceri Yönetimi',
+                        onTap: () => context.go('/admin'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              _buildSettingsSection(
-                title: 'HAKKINDA',
-                children: [
-                  _buildSettingsItem(
-                    context,
-                    icon: Icons.info_outline,
-                    title: 'Sürüm',
-                    subtitle: '1.0.0',
-                    onTap: null,
-                  ),
-                ],
-              ),
-            ],
-          ),
+                const SizedBox(height: 32),
+                _buildSettingsSection(
+                  title: 'HAKKINDA',
+                  children: [
+                    _buildSettingsItem(
+                      context,
+                      icon: Icons.info_outline,
+                      title: 'Sürüm',
+                      subtitle: '1.0.0',
+                      onTap: null,
+                    ),
+                  ],
+                ),
+              ],
+            );
+          }),
         ),
       ),
     );

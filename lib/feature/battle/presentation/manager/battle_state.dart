@@ -73,6 +73,10 @@ final class BattleInProgress extends BattleState {
   final Map<String, int> floatingDeltas;
   final int? lastActionSeq;
 
+  // Perspektife göre oyuncu adları (arena ve loglarda gösterim için).
+  final String? playerName;
+  final String? enemyName;
+
   const BattleInProgress({
     required this.playerTeam,
     required this.enemyTeam,
@@ -93,6 +97,8 @@ final class BattleInProgress extends BattleState {
     this.battleId,
     this.floatingDeltas = const {},
     this.lastActionSeq,
+    this.playerName,
+    this.enemyName,
   });
 
   /// State'i güncellerken değişmeyen alanları korumamızı sağlayan yardımcı metod
@@ -116,6 +122,8 @@ final class BattleInProgress extends BattleState {
     String? battleId,
     Map<String, int>? floatingDeltas,
     int? lastActionSeq,
+    String? playerName,
+    String? enemyName,
     bool clearSelection = false,
     bool clearTarget = false,
     bool clearAction = false,
@@ -141,6 +149,8 @@ final class BattleInProgress extends BattleState {
       battleId: battleId ?? this.battleId,
       floatingDeltas: clearFloatingDeltas ? const {} : (floatingDeltas ?? this.floatingDeltas),
       lastActionSeq: lastActionSeq ?? this.lastActionSeq,
+      playerName: playerName ?? this.playerName,
+      enemyName: enemyName ?? this.enemyName,
     );
   }
 

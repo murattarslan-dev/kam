@@ -9,7 +9,6 @@ import '../../feature/admin/presentation/pages/users_admin_screen.dart';
 import '../../feature/admin/presentation/widgets/admin_gate.dart';
 import '../../feature/battle/domain/entities/hero_entities.dart';
 import '../../feature/battle/presentation/pages/team_setup_screen.dart';
-import '../../feature/battle/presentation/pages/team_setup_pvp_screen.dart';
 import '../../feature/battle/presentation/pages/battle_screen.dart';
 import '../../feature/home/presentation/pages/home_screen.dart';
 import '../../feature/home/presentation/pages/settings_screen.dart';
@@ -17,9 +16,7 @@ import '../../feature/home/presentation/pages/settings_screen.dart';
 class AppRouter {
   static const String home = '/';
   static const String teamSetup = '/team-setup';
-  static const String teamSetupPvp = '/team-setup-pvp';
   static const String battle = '/battle';
-  static const String pvpBattle = '/pvp-battle';
   static const String settings = '/settings';
   static const String admin = '/admin';
   static const String adminBuffs = '/admin/buffs';
@@ -53,22 +50,9 @@ class AppRouter {
           return BattleScreen(
             playerTeam: extra?['playerTeam'] as List<HeroCardEntity>?,
             benchHeroes: extra?['benchHeroes'] as List<HeroCardEntity>?,
+            matchId: state.uri.queryParameters['match'],
           );
         },
-      ),
-      GoRoute(
-        path: teamSetupPvp,
-        name: 'teamSetupPvp',
-        builder: (context, state) => TeamSetupPvpScreen(
-          inviteMatchId: state.uri.queryParameters['match'],
-        ),
-      ),
-      GoRoute(
-        path: pvpBattle,
-        name: 'pvpBattle',
-        builder: (context, state) => BattleScreen(
-          matchId: state.uri.queryParameters['match'],
-        ),
       ),
       GoRoute(
         path: settings,

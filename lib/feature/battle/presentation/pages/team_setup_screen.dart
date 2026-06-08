@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/usecases/fetch_user_heroes_usecase.dart';
 import '../widgets/card_widget.dart';
+import 'package:kam/core/auth/auth_service.dart';
 import 'package:kam/core/di/injection.dart';
 import 'package:kam/core/util/responsive_helper.dart';
 import 'package:kam/core/util/player_id.dart';
@@ -99,21 +100,20 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     });
   }
 
-  /// Host: yeni maç lobisi açar ve kopyalanabilir davet linkini gösterir.
+  /// Host: yeni maç lobisi açar ve paylaşılabilir davet kodunu gösterir.
   Future<void> _invite() async {
     final picked = _collectTeam();
     if (picked == null || _busy) return;
     setState(() => _busy = true);
     try {
-      final matchId = await sl<BattleEngineDataSource>().createPvpLobby(
+      final lobby = await sl<BattleEngineDataSource>().createPvpLobby(
         hostId: getPlayerId(),
+        hostName: sl<AuthService>().displayName,
         hostTeam: picked.team,
         hostBench: picked.bench,
       );
       if (!mounted) return;
-      final base = Uri.base.removeFragment();
-      final link = '$base#/team-setup?match=$matchId';
-      await _showInviteDialog(link, matchId);
+      await _showInviteDialog(lobby.inviteCode, lobby.battleId);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -125,7 +125,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     }
   }
 
-  /// Guest: davet linkiyle gelmiş oyuncu maça katılır ve savaşa geçer.
+  /// Davet kodu ile gelen ikinci oyuncu maça katılır ve savaşa geçer.
   Future<void> _joinAsGuest() async {
     final picked = _collectTeam();
     final matchId = widget.inviteMatchId;
@@ -135,11 +135,12 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
       await sl<BattleEngineDataSource>().joinPvpLobby(
         battleId: matchId,
         guestId: getPlayerId(),
+        guestName: sl<AuthService>().displayName,
         guestTeam: picked.team,
         guestBench: picked.bench,
       );
       if (!mounted) return;
-      context.go('/pvp-battle?match=$matchId');
+      context.go('/battle?match=$matchId');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -150,51 +151,55 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     }
   }
 
-  Future<void> _showInviteDialog(String link, String matchId) {
+  Future<void> _showInviteDialog(String code, String matchId) {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dContext) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
-        title: const Text('Rakip Davet Et',
+        title: const Text('Davet Kodu',
             style: TextStyle(color: Colors.tealAccent, fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const Text(
-              'Bu linki rakibine gönder. O takımını seçip katıldığında savaş başlar.',
+              'Bu kodu rakibine ver. O ana ekrandaki "Oyuna Katıl"a tıklayıp kodu girdiğinde savaş başlar.',
               style: TextStyle(color: Colors.white70, fontSize: 12),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               decoration: BoxDecoration(
                 color: Colors.black26,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.tealAccent.withValues(alpha: 0.4)),
               ),
               child: SelectableText(
-                link,
-                style: const TextStyle(color: Colors.white, fontSize: 11),
+                code,
+                style: const TextStyle(
+                  color: Colors.tealAccent,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 6,
+                  fontFamily: 'monospace',
+                ),
               ),
             ),
             const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: link));
-                  if (dContext.mounted) {
-                    ScaffoldMessenger.of(dContext).showSnackBar(
-                      const SnackBar(content: Text('Link kopyalandı')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.copy, size: 16, color: Colors.tealAccent),
-                label: const Text('Linki Kopyala',
-                    style: TextStyle(color: Colors.tealAccent)),
-              ),
+            TextButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: code));
+                if (dContext.mounted) {
+                  ScaffoldMessenger.of(dContext).showSnackBar(
+                    const SnackBar(content: Text('Kod kopyalandı')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.copy, size: 16, color: Colors.tealAccent),
+              label: const Text('Kodu Kopyala',
+                  style: TextStyle(color: Colors.tealAccent)),
             ),
           ],
         ),
@@ -207,7 +212,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.tealAccent),
             onPressed: () {
               Navigator.pop(dContext);
-              context.go('/pvp-battle?match=$matchId');
+              context.go('/battle?match=$matchId');
             },
             icon: const Icon(Icons.login, size: 16, color: Colors.black),
             label: const Text('LOBİYE GEÇ',

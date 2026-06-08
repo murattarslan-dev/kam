@@ -246,18 +246,20 @@ class _BattleViewState extends State<BattleView> {
               ),
               const Divider(color: Colors.white10, height: 16),
               Expanded(
-                child: ListView.builder(
+                child: ListView.separated(
                   controller: scrollController,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   itemCount: state.battleLogs.length,
                   reverse: true,
+                  separatorBuilder: (_, __) =>
+                      const Divider(color: Colors.white12, height: 12),
                   itemBuilder: (_, i) {
                     final idx = state.battleLogs.length - 1 - i;
                     return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Text(
                         state.battleLogs[idx],
-                        style: const TextStyle(fontSize: 12, color: Colors.white70, height: 1.4),
+                        style: const TextStyle(fontSize: 12, color: Colors.white70, height: 1.5),
                       ),
                     );
                   },
@@ -416,6 +418,7 @@ class _BattleViewState extends State<BattleView> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         const SizedBox(height: 10),
+        _buildPlayerLabel(state.enemyName ?? 'Rakip', isEnemy: true),
         _buildTeamRow(context, state.enemyTeam, true, state),
         Expanded(
           child: Center(
@@ -472,8 +475,46 @@ class _BattleViewState extends State<BattleView> {
           ),
         ),
         _buildTeamRow(context, state.playerTeam, false, state),
+        _buildPlayerLabel(state.playerName ?? 'Sen', isEnemy: false),
         const SizedBox(height: 10),
       ],
+    );
+  }
+
+  Widget _buildPlayerLabel(String name, {required bool isEnemy}) {
+    final color = isEnemy ? Colors.redAccent : Colors.tealAccent;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isEnemy ? Icons.person_outline : Icons.shield_outlined,
+                size: 12,
+                color: color,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                name,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -642,10 +683,14 @@ class _BattleViewState extends State<BattleView> {
           const Padding(padding: EdgeInsets.all(12.0), child: Text("SAVAŞ GÜNCESİ", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
           const Divider(color: Colors.white10, height: 1),
           Expanded(
-            child: ListView.builder(
+            child: ListView.separated(
               padding: const EdgeInsets.all(8),
               itemCount: state.battleLogs.length,
-              itemBuilder: (context, index) => Text(state.battleLogs[index], style: const TextStyle(fontSize: 11, color: Colors.white70)),
+              separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 10),
+              itemBuilder: (context, index) => Text(
+                state.battleLogs[index],
+                style: const TextStyle(fontSize: 11, color: Colors.white70, height: 1.5),
+              ),
             ),
           ),
         ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'core/auth/auth_gate.dart';
 import 'core/di/injection.dart';
 import 'core/routes/app_router.dart';
 import 'firebase_options.dart';
@@ -32,6 +33,7 @@ class KamApp extends StatelessWidget {
       routerConfig: AppRouter.router,
 
       // Sistem yazı tipi ölçeğini sınırla (mobil layout korunsun)
+      // + tüm uygulamayı AuthGate ile sar.
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         final clamped = mq.textScaler.clamp(
@@ -40,7 +42,7 @@ class KamApp extends StatelessWidget {
         );
         return MediaQuery(
           data: mq.copyWith(textScaler: clamped),
-          child: child ?? const SizedBox.shrink(),
+          child: AuthGate(child: child ?? const SizedBox.shrink()),
         );
       },
 

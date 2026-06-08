@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/auth/auth_service.dart';
+import '../../../../core/di/injection.dart';
 import '../../data/datasources/battle_engine_datasource.dart';
 import '../../data/mappers/battle_doc_mapper.dart';
 import '../../domain/entities/buff_entities.dart';
@@ -66,6 +68,7 @@ class BattleCubit extends Cubit<BattleState> {
       }
       _battleId = await _engine.createPveBattle(
         hostId: myId,
+        hostName: sl<AuthService>().displayName,
         playerTeam: team,
         bench: bench,
       );

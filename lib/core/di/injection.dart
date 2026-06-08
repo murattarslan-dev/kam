@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import '../auth/auth_service.dart';
 import '../firebase/firebase_service.dart';
 import '../../feature/battle/domain/repository/battle_repository.dart';
 import '../../feature/battle/data/repository/battle_repository_impl.dart';
@@ -59,8 +60,8 @@ Future<void> setupLocator() async {
   //----------------------------------------------------------------------------
 
   sl.registerLazySingleton<FirebaseService>(() => FirebaseService());
+  sl.registerLazySingleton<AuthService>(() => AuthService());
 
-  // Geçici olarak statik giriş yap (Geliştirme aşaması için)
-  final firebaseService = sl<FirebaseService>();
-  await firebaseService.signInWithEmailAndPassword('kam@official.com', '123456');
+  // Mevcut oturum varsa kullanıcı bilgilerini (displayName) belleğe yükle.
+  await sl<AuthService>().bootstrap();
 }

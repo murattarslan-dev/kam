@@ -117,7 +117,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
   }
 
   @override
-  Future<String> createPvpLobby({
+  Future<PvpLobby> createPvpLobby({
     required String hostId,
     String? hostName,
     required List<HeroCardEntity> hostTeam,
@@ -126,6 +126,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     final assignedTeam = BattleDocMapper.assignInstanceIds(hostTeam, 'h');
     final assignedBench = BattleDocMapper.assignInstanceIds(hostBench, 'hb');
     final doc = _col.doc();
+    final code = await _generateUniqueCode();
     await doc.set({
       'mode': 'pvp',
       'status': 'lobby',
@@ -135,6 +136,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'guestName': null,
       'hostReady': true,
       'guestReady': false,
+      'inviteCode': code,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'currentTurn': 1,
@@ -153,7 +155,34 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'lastAction': null,
       'result': null,
     });
-    return doc.id;
+    return PvpLobby(battleId: doc.id, inviteCode: code);
+  }
+
+  @override
+  Future<String?> findLobbyByCode(String code) async {
+    final normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) return null;
+    final q = await _col
+        .where('inviteCode', isEqualTo: normalized)
+        .where('status', isEqualTo: 'lobby')
+        .limit(1)
+        .get();
+    if (q.docs.isEmpty) return null;
+    return q.docs.first.id;
+  }
+
+  /// Karışan karakterleri (0,O,1,I,L) hariç tutan 6 haneli kod üretir.
+  /// Çakışma durumunda 3 kez yeniden dener (pratikte ~milyarda 1).
+  Future<String> _generateUniqueCode() async {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final code = List.generate(6, (_) => chars[_rng.nextInt(chars.length)]).join();
+      final existing = await findLobbyByCode(code);
+      if (existing == null) return code;
+    }
+    // Son çare: timestamp suffix
+    return List.generate(4, (_) => chars[_rng.nextInt(chars.length)]).join() +
+        (DateTime.now().millisecondsSinceEpoch % 100).toString().padLeft(2, '0');
   }
 
   @override
@@ -234,7 +263,11 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     if (!attacker.isAlive || !target.isAlive) return;
     if (state.actedHeroIds.contains(attacker.id)) return;
 
-    final next = _applyAttack(state, attacker, target);
+    final actorPlayerName = (mySide == 'host'
+            ? data['hostName']
+            : data['guestName']) as String? ??
+        'Oyuncu';
+    final next = _applyAttack(state, attacker, target, actorPlayerName);
     final deltas = _diffHpDeltas(state, next);
 
     final seq = ((data['seq'] as num?)?.toInt() ?? 0) + 1;
@@ -384,14 +417,14 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     BattleInProgress state,
     HeroCardEntity attacker,
     HeroCardEntity target,
+    String actorPlayerName,
   ) {
-    final rawDamage = (attacker.currentAttackPower *
-            attacker.element.getDamageMultiplier(target.element))
-        .round();
+    final elemMult = attacker.element.getDamageMultiplier(target.element);
+    final rawDamage = (attacker.currentAttackPower * elemMult).round();
     final defenseReduction = target.currentDefensePower;
-    final damage = max(1, rawDamage - defenseReduction);
+    final preSoakDamage = max(1, rawDamage - defenseReduction);
 
-    final soak = _buffs.calculateDamageSoak(state, target.id, damage,
+    final soak = _buffs.calculateDamageSoak(state, target.id, preSoakDamage,
         isPlayerTarget: false);
     final finalDamage = soak.remainingDamage;
     final newHealth = (target.health - finalDamage).clamp(0, target.currentCp);
@@ -414,12 +447,19 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
 
     final acted = [...state.actedHeroIds, attacker.id];
 
-    final logLine = [
-      '${attacker.name} → ${target.name}',
-      'Hasar: $finalDamage',
-      'HP: ${target.health} → ${newHealth.toInt()}',
-      if (killed) '+2 Kut',
-    ].join(' · ');
+    final logLine = _buildAttackLog(
+      actorPlayerName: actorPlayerName,
+      attacker: attacker,
+      target: target,
+      elemMult: elemMult,
+      rawDamage: rawDamage,
+      preSoakDamage: preSoakDamage,
+      finalDamage: finalDamage,
+      soakers: soak.soakers,
+      allHeroes: [...state.playerTeam, ...state.enemyTeam, ...state.benchHeroes],
+      newHealth: newHealth.toInt(),
+      killed: killed,
+    );
 
     BattleInProgress next = state.copyWith(
       playerTeam: updatedPlayer,
@@ -432,16 +472,6 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
 
     if (soak.hasSoak) {
       next = _buffs.applySoakDamage(next, soak.soakers);
-      for (final s in soak.soakers) {
-        final all = [...next.playerTeam, ...next.enemyTeam];
-        final name = all.firstWhere((h) => h.id == s.heroId).name;
-        next = next.copyWith(
-          battleLogs: [
-            '$name takım arkadaşının yerine ${s.amount} hasarı üstlendi',
-            ...next.battleLogs,
-          ],
-        );
-      }
     }
 
     next = _buffs.checkDamageTakenTriggers(next, target.id);
@@ -458,6 +488,63 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
   }
 
   // ── Ortak yazma yolu ────────────────────────────────────────────────────
+
+  /// Saldırı için ayrıntılı, çok satırlı log üretir.
+  String _buildAttackLog({
+    required String actorPlayerName,
+    required HeroCardEntity attacker,
+    required HeroCardEntity target,
+    required double elemMult,
+    required int rawDamage,
+    required int preSoakDamage,
+    required int finalDamage,
+    required List soakers,
+    required List<HeroCardEntity> allHeroes,
+    required int newHealth,
+    required bool killed,
+  }) {
+    String fmtBonus(int v) {
+      if (v == 0) return '';
+      return v > 0 ? ' +$v(buff)' : ' $v(debuff)';
+    }
+
+    String elemArrow() {
+      if (elemMult > 1.0) return ' ↑${elemMult.toStringAsFixed(1)}× üstün';
+      if (elemMult < 1.0) return ' ↓${elemMult.toStringAsFixed(1)}× zayıf';
+      return ' =${elemMult.toStringAsFixed(1)}× nötr';
+    }
+
+    final atkPart =
+        'Atak ${attacker.attackPower}${fmtBonus(attacker.bonusAttack)} '
+        '× element${elemArrow()} = $rawDamage';
+    final defPart =
+        'Savunma ${target.defensePower}${fmtBonus(target.bonusDefense)} '
+        '→ Net $preSoakDamage hasar';
+
+    final lines = <String>[
+      '[$actorPlayerName] ${attacker.name} → ${target.name}',
+      atkPart,
+      defPart,
+    ];
+
+    if (soakers.isNotEmpty) {
+      final shared = soakers
+          .map((s) {
+            final name = allHeroes
+                .where((h) => h.id == s.heroId)
+                .map((h) => h.name)
+                .firstOrNull;
+            return '${name ?? "?"}: ${s.amount}';
+          })
+          .join(', ');
+      lines.add('Tank emdi: $shared → ${target.name} alan hasar: $finalDamage');
+    }
+
+    lines.add('${target.name} HP ${target.health} → $newHealth');
+    if (killed) lines.add('${attacker.name} +2 Kut kazandı');
+
+    return lines.join('\n');
+  }
 
   /// HP delta diff'i — sahnedeki ve yedek tüm kahramanlar için.
   Map<String, int> _diffHpDeltas(BattleInProgress before, BattleInProgress after) {

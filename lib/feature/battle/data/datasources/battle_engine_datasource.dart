@@ -12,6 +12,12 @@ import '../../domain/entities/hero_entities.dart';
 ///   hamlesini de aynı borudan üretip yine Firestore'a yazar.
 /// - PvP modunda sıra rakipte ise motor bir şey yapmaz; karşı taraf
 ///   kendi cihazında yazar, snapshot listener bizim ekranı günceller.
+class PvpLobby {
+  final String battleId;
+  final String inviteCode;
+  const PvpLobby({required this.battleId, required this.inviteCode});
+}
+
 abstract class BattleEngineDataSource {
   // ── Oluşturma ────────────────────────────────────────────────────────────
 
@@ -23,15 +29,20 @@ abstract class BattleEngineDataSource {
     required List<HeroCardEntity> bench,
   });
 
-  /// PvP için yeni bir lobi oluşturur. Guest gelene kadar `status='lobby'`.
-  Future<String> createPvpLobby({
+  /// PvP için yeni bir lobi oluşturur. İkinci oyuncu gelene kadar
+  /// `status='lobby'`. Dönen kod ekranda gösterilir; rakip ana ekrandaki
+  /// "Oyuna Katıl" akışıyla bu kodu girerek dahil olur.
+  Future<PvpLobby> createPvpLobby({
     required String hostId,
     String? hostName,
     required List<HeroCardEntity> hostTeam,
     required List<HeroCardEntity> hostBench,
   });
 
-  /// Guest lobiye katılır ve savaş `in_progress`'e geçer.
+  /// Davet kodundan lobi (battleId) bul. Yoksa null.
+  Future<String?> findLobbyByCode(String code);
+
+  /// Kod gerektirmeden lobiye katılır ve savaş `in_progress`'e geçer.
   Future<void> joinPvpLobby({
     required String battleId,
     required String guestId,

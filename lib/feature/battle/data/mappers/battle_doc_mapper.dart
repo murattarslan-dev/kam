@@ -192,6 +192,12 @@ class BattleDocMapper {
       battleId: battleId,
       floatingDeltas: deltas,
       lastActionSeq: lastSeq,
+      playerName: isHostPerspective
+          ? (doc['hostName'] as String?)
+          : (doc['guestName'] as String?),
+      enemyName: isHostPerspective
+          ? (doc['guestName'] as String?)
+          : (doc['hostName'] as String?),
     );
   }
 

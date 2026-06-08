@@ -1,91 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/auth/auth_service.dart';
+import '../../../../core/di/injection.dart';
 
-/// Admin ekranlarını basit bir parola ile koruyan kapı.
-/// Oturum süresince [unlocked] true kalır; sayfa yenilenince yeniden sorulur.
-class AdminGate extends StatefulWidget {
+/// Admin ekranlarını yalnız izin verilen kullanıcılara açar.
+/// Kontrol: kullanıcı email'i [AuthService.adminEmails] içinde mi?
+class AdminGate extends StatelessWidget {
   final Widget child;
   const AdminGate({super.key, required this.child});
 
-  /// İstemci-tarafı koruma — gerçek güvenlik için Firestore Rules + Auth gerekir.
-  static const _password = 'kam2026';
-  static bool unlocked = false;
-
-  @override
-  State<AdminGate> createState() => _AdminGateState();
-}
-
-class _AdminGateState extends State<AdminGate> {
-  final _ctrl = TextEditingController();
-  String? _error;
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    if (_ctrl.text == AdminGate._password) {
-      setState(() {
-        AdminGate.unlocked = true;
-        _error = null;
-      });
-    } else {
-      setState(() => _error = 'Hatalı parola');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (AdminGate.unlocked) return widget.child;
+    final auth = sl<AuthService>();
+    if (auth.isAdmin) return child;
     return Scaffold(
+      backgroundColor: const Color(0xFF020617),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
+          constraints: const BoxConstraints(maxWidth: 380),
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
-                  Icons.lock_outline,
-                  size: 48,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                const Icon(Icons.lock_outline, size: 56, color: Colors.white54),
                 const SizedBox(height: 16),
-                Text(
-                  'Yönetim panosu',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
+                const Text(
+                  'Yetki yok',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Devam etmek için parola gerekli.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).hintColor,
-                      ),
+                  auth.currentUser == null
+                      ? 'Yönetim için önce giriş yap.'
+                      : 'Bu hesap (${auth.currentUser?.email}) admin değil.',
                   textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white54),
                 ),
                 const SizedBox(height: 24),
-                TextField(
-                  controller: _ctrl,
-                  autofocus: true,
-                  obscureText: true,
-                  onSubmitted: (_) => _submit(),
-                  decoration: InputDecoration(
-                    labelText: 'Parola',
-                    border: const OutlineInputBorder(),
-                    errorText: _error,
-                  ),
-                ),
-                const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: _submit,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('Giriş'),
-                  ),
+                  onPressed: () => context.go('/'),
+                  child: const Text('Ana sayfa'),
                 ),
               ],
             ),

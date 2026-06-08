@@ -69,7 +69,8 @@
       "Bash(pkill -f \"flutter run.*web-server\")",
       "Bash(awk '{print $2}')",
       "Bash(pkill -9 -f \"flutter run\")",
-      "Bash(pkill -9 -f \"dart\")"
+      "Bash(pkill -9 -f \"dart\")",
+      "Bash(powershell -Command \"\\(Get-Content 'lib/feature/battle/presentation/pages/battle_screen.dart' -Raw\\) -replace 'BattleCubitBase', 'BattleCubit' | Set-Content 'lib/feature/battle/presentation/pages/battle_screen.dart'\")"
     ]
   }
 }
