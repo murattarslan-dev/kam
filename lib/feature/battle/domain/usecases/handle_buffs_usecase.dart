@@ -20,7 +20,8 @@ class DamageSoakResult {
 class HandleBuffsUseCase {
   /// Bir buff'ı manuel veya tetiklenme sonucu bir kahramana uygular.
   BattleInProgress applyBuff(BattleInProgress currentState, String buffId, String targetHeroId) {
-    final buff = currentState.allBuffs.firstWhere((b) => b.id == buffId);
+    final buff = currentState.allBuffs.where((b) => b.id == buffId).firstOrNull;
+    if (buff == null) return currentState;
 
     // Eğer buff zaten aktifse (aynı kahramanda), süresini yenileyebiliriz veya stackleyebiliriz.
     // Şimdilik süresini yenileyelim.
@@ -293,10 +294,10 @@ class HandleBuffsUseCase {
       } else if (activeBuff.remainingTurns > 1) {
         updatedActiveBuffs.add(activeBuff.copyWith(remainingTurns: activeBuff.remainingTurns - 1));
       } else {
-        final buff = stateWithEffects.allBuffs.firstWhere((b) => b.id == activeBuff.buffId);
+        final buff = stateWithEffects.allBuffs.where((b) => b.id == activeBuff.buffId).firstOrNull;
         final allHeroes = [...stateWithEffects.playerTeam, ...stateWithEffects.enemyTeam, ...stateWithEffects.benchHeroes];
         final hero = allHeroes.where((h) => h.id == activeBuff.targetHeroId).firstOrNull;
-        if (hero != null) {
+        if (buff != null && hero != null) {
           logs.insert(0, "${hero.name} üzerindeki ${buff.name} etkisi sona erdi.");
         }
       }
@@ -317,7 +318,8 @@ class HandleBuffsUseCase {
     BattleInProgress newState = state;
 
     for (final activeBuff in state.activeBuffs) {
-      final buff = state.allBuffs.firstWhere((b) => b.id == activeBuff.buffId);
+      final buff = state.allBuffs.where((b) => b.id == activeBuff.buffId).firstOrNull;
+      if (buff == null) continue;
 
       if (buff.type == BuffType.dot || buff.type == BuffType.hot) {
         newState = _applySingleEffect(newState, buff, activeBuff.targetHeroId);
@@ -452,7 +454,8 @@ class HandleBuffsUseCase {
     final heroBuffs = activeBuffs.where((ab) => ab.targetHeroId == hero.id);
 
     for (final activeBuff in heroBuffs) {
-      final buff = allBuffs.firstWhere((b) => b.id == activeBuff.buffId);
+      final buff = allBuffs.where((b) => b.id == activeBuff.buffId).firstOrNull;
+      if (buff == null) continue;
       if (buff.type == BuffType.statChange) {
         if (buff.statType == StatType.attack) {
           bonusAtk += buff.value;

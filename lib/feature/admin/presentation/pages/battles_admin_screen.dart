@@ -291,22 +291,20 @@ class _BattleDetail extends StatelessWidget {
                 icon: Icons.groups,
                 child: AdminTwoCol(
                   left: _TeamColumn(
-                    title: 'Oyuncu',
-                    snapshots: data['playerTeam'] as List?,
-                    current: data['playerTeamCurrent'] as List?,
+                    title: 'Host (oyuncu)',
+                    snapshots: data['hostTeam'] as List?,
                   ),
                   right: _TeamColumn(
-                    title: 'Düşman',
-                    snapshots: data['enemyTeam'] as List?,
-                    current: data['enemyTeamCurrent'] as List?,
+                    title: 'Guest (rakip)',
+                    snapshots: data['guestTeam'] as List?,
                   ),
                 ),
               ),
-              if (data['heroStats'] is List)
+              if (result != null && result['heroStats'] is List)
                 AdminSection(
                   title: 'Kahraman istatistikleri',
                   icon: Icons.bar_chart,
-                  child: _HeroStatsTable(rows: data['heroStats'] as List),
+                  child: _HeroStatsTable(rows: result['heroStats'] as List),
                 ),
               if (data['activeBuffs'] is List &&
                   (data['activeBuffs'] as List).isNotEmpty)
@@ -340,35 +338,27 @@ class _BattleDetail extends StatelessWidget {
 class _TeamColumn extends StatelessWidget {
   final String title;
   final List? snapshots;
-  final List? current;
-  const _TeamColumn({required this.title, this.snapshots, this.current});
+  const _TeamColumn({required this.title, this.snapshots});
 
   @override
   Widget build(BuildContext context) {
-    final snap = snapshots ?? const [];
-    final cur = current ?? const [];
-    Map<String, dynamic>? curById(String id) {
-      for (final c in cur) {
-        if ((c as Map)['id'] == id) return Map<String, dynamic>.from(c);
-      }
-      return null;
-    }
-
+    final team = snapshots ?? const [];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(title, style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 6),
-        if (snap.isEmpty)
+        if (team.isEmpty)
           Text('—', style: TextStyle(color: Theme.of(context).hintColor))
         else
-          for (final h in snap)
+          for (final h in team)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Builder(builder: (_) {
                 final m = Map<String, dynamic>.from(h as Map);
-                final c = curById(m['id'] as String? ?? '');
-                final alive = c == null ? true : (c['isAlive'] as bool? ?? true);
+                final hp = (m['health'] as num?)?.toInt() ?? 0;
+                final maxHp = (m['cp'] as num?)?.toInt() ?? 0;
+                final alive = hp > 0;
                 return Row(
                   children: [
                     Icon(
@@ -378,11 +368,10 @@ class _TeamColumn extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Expanded(child: Text(m['name'] as String? ?? '?')),
-                    if (c != null)
-                      Text(
-                        'HP ${c['health']} · Kut ${c['kut']}',
-                        style: const TextStyle(fontSize: 11),
-                      ),
+                    Text(
+                      'HP $hp/$maxHp · Kut ${m['kut'] ?? 0}',
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ],
                 );
               }),
@@ -407,6 +396,7 @@ class _HeroStatsTable extends StatelessWidget {
         dataRowMaxHeight: 36,
         columns: const [
           DataColumn(label: Text('Kahraman')),
+          DataColumn(label: Text('Taraf')),
           DataColumn(label: Text('Yedek')),
           DataColumn(label: Text('Verilen')),
           DataColumn(label: Text('Alınan')),
@@ -416,6 +406,7 @@ class _HeroStatsTable extends StatelessWidget {
           final m = Map<String, dynamic>.from(r as Map);
           return DataRow(cells: [
             DataCell(Text(m['name'] as String? ?? '?')),
+            DataCell(Text(m['side'] as String? ?? '?')),
             DataCell(Text(m['isBench'] == true ? '✓' : '')),
             DataCell(Text('${m['damageDealt'] ?? 0}')),
             DataCell(Text('${m['damageReceived'] ?? 0}')),

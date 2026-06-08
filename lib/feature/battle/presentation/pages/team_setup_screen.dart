@@ -7,7 +7,7 @@ import '../widgets/card_widget.dart';
 import 'package:kam/core/di/injection.dart';
 import 'package:kam/core/util/responsive_helper.dart';
 import 'package:kam/core/util/player_id.dart';
-import 'package:kam/feature/pvp/data/match_service.dart';
+import 'package:kam/feature/battle/data/datasources/battle_engine_datasource.dart';
 
 class TeamSetupScreen extends StatefulWidget {
   /// Davet linkiyle gelindiğinde dolu olur (`?match=<id>`); bu durumda oyuncu
@@ -105,7 +105,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     if (picked == null || _busy) return;
     setState(() => _busy = true);
     try {
-      final matchId = await sl<MatchService>().createMatch(
+      final matchId = await sl<BattleEngineDataSource>().createPvpLobby(
         hostId: getPlayerId(),
         hostTeam: picked.team,
         hostBench: picked.bench,
@@ -132,8 +132,8 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     if (picked == null || matchId == null || _busy) return;
     setState(() => _busy = true);
     try {
-      await sl<MatchService>().joinMatch(
-        matchId: matchId,
+      await sl<BattleEngineDataSource>().joinPvpLobby(
+        battleId: matchId,
         guestId: getPlayerId(),
         guestTeam: picked.team,
         guestBench: picked.bench,

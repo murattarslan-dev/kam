@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../manager/battle_cubit.dart';
-import '../manager/battle_cubit_base.dart';
 import '../manager/battle_state.dart';
 import '../widgets/card_widget.dart';
 import '../../domain/entities/hero_entities.dart';
 import 'package:kam/core/util/responsive_helper.dart';
 import 'package:kam/core/util/player_id.dart';
 import 'package:kam/core/di/injection.dart';
-import 'package:kam/feature/pvp/presentation/pvp_battle_cubit.dart';
 
 class BattleScreen extends StatelessWidget {
   final List<HeroCardEntity>? playerTeam;
@@ -20,16 +18,21 @@ class BattleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<BattleCubitBase>(
+    return BlocProvider<BattleCubit>(
       create: (context) {
+        final cubit = sl<BattleCubit>();
+        final myId = getPlayerId();
         final mid = matchId;
         if (mid != null) {
-          return sl<PvpBattleCubit>()..start(mid, getPlayerId());
+          cubit.openExistingBattle(mid, myId);
+        } else {
+          cubit.startPveBattle(
+            myId: myId,
+            playerTeam: playerTeam,
+            benchHeroes: benchHeroes,
+          );
         }
-        return sl<BattleCubit>()..startBattle(
-          playerTeam: playerTeam,
-          benchHeroes: benchHeroes,
-        );
+        return cubit;
       },
       child: const BattleView(),
     );
@@ -279,7 +282,7 @@ class _BattleViewState extends State<BattleView> {
       child: Scaffold(
         backgroundColor: const Color(0xFF020617),
         body: SafeArea(
-          child: BlocBuilder<BattleCubitBase, BattleState>(
+          child: BlocBuilder<BattleCubit, BattleState>(
           builder: (context, state) {
             if (state is BattleInitial || state is BattleLoading) {
               final loadingState = state as BattleLoading?;
@@ -355,7 +358,7 @@ class _BattleViewState extends State<BattleView> {
                   if (state.currentAction != null)
                     BattleAnimationOverlay(
                       action: state.currentAction!,
-                      onComplete: () => context.read<BattleCubitBase>().onAnimationComplete(),
+                      onComplete: () => context.read<BattleCubit>().onAnimationComplete(),
                     ),
                   if (!state.isPlayerTurn && state.currentAction == null)
                     Positioned(
@@ -427,7 +430,7 @@ class _BattleViewState extends State<BattleView> {
                         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      onPressed: () => context.read<BattleCubitBase>().executePlayerAttack(),
+                      onPressed: () => context.read<BattleCubit>().executePlayerAttack(),
                       icon: const Icon(Icons.flash_on, color: Colors.white),
                       label: const Text("SALDIR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     )
@@ -494,7 +497,7 @@ class _BattleViewState extends State<BattleView> {
               card: card,
               isSelected: isSelected,
               isEnemy: isEnemy,
-              onTap: () => context.read<BattleCubitBase>().selectHero(index, isEnemy),
+              onTap: () => context.read<BattleCubit>().selectHero(index, isEnemy),
               onTozPressed: (!isEnemy && isSelected && state.isPlayerTurn) ? () => _showTozDialog(context, state) : null,
               activeBuffs: state.activeBuffs,
               allBuffs: state.allBuffs,
@@ -521,7 +524,7 @@ class _BattleViewState extends State<BattleView> {
     final fieldHero = state.playerTeam[heroIndex];
     // Cubit'i dialog açılmadan önce yakala — dialog içindeki context'ler
     // BlocProvider'a ulaşamadığından bu referans kapatma (closure) yoluyla kullanılır.
-    final cubit = context.read<BattleCubitBase>();
+    final cubit = context.read<BattleCubit>();
 
     showDialog(
       context: context,
@@ -569,7 +572,7 @@ class _BattleViewState extends State<BattleView> {
     final heroIndex = state.selectedHeroIndex;
     if (heroIndex == null) return;
     final hero = state.playerTeam[heroIndex];
-    final cubit = context.read<BattleCubitBase>();
+    final cubit = context.read<BattleCubit>();
 
     showDialog(
       context: context,

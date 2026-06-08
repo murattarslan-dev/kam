@@ -1,304 +1,279 @@
 import 'dart:async';
-import '../manager/battle_state.dart';
-import '../manager/battle_cubit_base.dart';
-import '../../domain/entities/hero_entities.dart';
-import '../../domain/usecases/start_battle_usecase.dart';
-import '../../domain/usecases/select_hero_usecase.dart';
-import '../../domain/usecases/execute_player_attack_usecase.dart';
-import '../../domain/usecases/apply_player_attack_usecase.dart';
-import '../../domain/usecases/use_skill_usecase.dart';
-import '../../domain/usecases/execute_enemy_turn_usecase.dart';
-import '../../domain/usecases/finalize_xp_usecase.dart';
-import '../../domain/usecases/handle_buffs_usecase.dart';
-import '../../domain/usecases/swap_hero_usecase.dart';
-import '../../domain/usecases/log_battle_event_usecase.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../data/datasources/battle_engine_datasource.dart';
+import '../../data/mappers/battle_doc_mapper.dart';
 import '../../domain/entities/buff_entities.dart';
+import '../../domain/entities/hero_entities.dart';
+import '../../domain/repository/battle_repository.dart';
+import '../../domain/usecases/use_skill_usecase.dart';
+import 'battle_state.dart';
 
-class BattleCubit extends BattleCubitBase {
-  final StartBattleUseCase _startBattleUseCase;
-  final SelectHeroUseCase _selectHeroUseCase;
-  final ExecutePlayerAttackUseCase _executePlayerAttackUseCase;
-  final ApplyPlayerAttackUseCase _applyPlayerAttackUseCase;
+/// Tek savaş cubit'i. PvE / PvP fark etmez.
+///
+/// Cubit ince bir köprüdür:
+/// - UI'dan gelen intent'i (saldır, skill, swap) engine'e iletir.
+/// - Engine'in Firestore yazımları snapshot stream'i üzerinden geri akar.
+/// - Burada yalnız perspektif (mySide) ve UI-yerel seçim durumu tutulur.
+class BattleCubit extends Cubit<BattleState> {
+  final BattleEngineDataSource _engine;
+  final BattleRepository _repo;
   final UseSkillUseCase _useSkillUseCase;
-  final ExecuteEnemyTurnUseCase _executeEnemyTurnUseCase;
-  final FinalizeXpUseCase _finalizeXpUseCase;
-  final HandleBuffsUseCase _handleBuffsUseCase;
-  final SwapHeroUseCase _swapHeroUseCase;
-  final LogBattleEventUseCase _logBattleEventUseCase;
 
-  BattleCubit(
-    this._startBattleUseCase,
-    this._selectHeroUseCase,
-    this._executePlayerAttackUseCase,
-    this._applyPlayerAttackUseCase,
-    this._useSkillUseCase,
-    this._executeEnemyTurnUseCase,
-    this._finalizeXpUseCase,
-    this._handleBuffsUseCase,
-    this._swapHeroUseCase,
-    this._logBattleEventUseCase,
-  ) : super(const BattleInitial());
+  BattleCubit(this._engine, this._repo, this._useSkillUseCase)
+      : super(const BattleInitial());
 
-  /// Takım hazırlama ekranından veya doğrudan başlatma ile savaşı başlatır.
-  Future<void> startBattle({
+  String _battleId = '';
+  String _myId = '';
+  String _mySide = '';
+  String _mode = '';
+  List<BuffEntity> _allBuffs = const [];
+
+  int _lastAnimatedSeq = -1;
+  int? _selectedHeroIndex;
+  int? _selectedTargetIndex;
+
+  StreamSubscription<Map<String, dynamic>?>? _sub;
+  Timer? _heartbeat;
+
+  // ── Açılış ─────────────────────────────────────────────────────────────
+
+  /// PvE: yeni bir bot savaşı yarat ve dinlemeye başla.
+  Future<void> startPveBattle({
+    required String myId,
     List<HeroCardEntity>? playerTeam,
     List<HeroCardEntity>? benchHeroes,
   }) async {
-    emit(const BattleLoading());
-    final result = await _startBattleUseCase.execute(
-      predefinedPlayerTeam: playerTeam,
-      predefinedBenchHeroes: benchHeroes,
-    );
-
-    if (result is BattleInProgress) {
-      final stateWithBuffs = _handleBuffsUseCase.checkAutoBuffs(
-          result, BuffTriggerCondition.onBattleStart);
-      final stateWithPassives = _handleBuffsUseCase.checkPassiveBuffs(stateWithBuffs);
-
-      // Firestore battle dokümanını oluştur ve battleId'yi state'e ekle.
-      final battleId = await _logBattleEventUseCase.createBattle(
-        playerTeam: stateWithPassives.playerTeam,
-        enemyTeam: stateWithPassives.enemyTeam,
+    emit(const BattleLoading(message: 'Savaş hazırlanıyor...'));
+    _myId = myId;
+    _mySide = 'host';
+    try {
+      _allBuffs = await _repo.fetchAllBuffs();
+      List<HeroCardEntity> team = playerTeam ?? const [];
+      List<HeroCardEntity> bench = benchHeroes ?? const [];
+      if (team.isEmpty) {
+        // Takım hazırlama atlandıysa fallback: kullanıcının kahramanlarından ilk 3
+        final all = await _repo.fetchUserHeroes(myId);
+        if (all.isEmpty) {
+          emit(const BattleError('Kullanıcıya ait kahraman bulunamadı'));
+          return;
+        }
+        team = all.take(3).toList();
+        bench = all.length > 3 ? all.sublist(3) : const [];
+      }
+      _battleId = await _engine.createPveBattle(
+        hostId: myId,
+        playerTeam: team,
+        bench: bench,
       );
-      final stateWithId = stateWithPassives.copyWith(battleId: battleId);
-      emit(stateWithId);
-
-      await _logBattleEventUseCase.log(
-        stateAfter: stateWithId,
-        side: 'system',
-        type: 'battle_start',
-        message: 'Savaş başladı.',
-      );
-    } else {
-      emit(result);
+      _mode = 'pve';
+      _startWatch();
+    } catch (e) {
+      emit(BattleError('Savaş başlatılamadı: $e'));
     }
   }
 
-  /// Bir kahramanı seçme veya hedef belirleme
-  @override
+  /// Var olan bir savaşa (PvP lobi/PvP maç/PvE devam) bağlan.
+  Future<void> openExistingBattle(String battleId, String myId) async {
+    emit(const BattleLoading(message: 'Savaş yükleniyor...'));
+    _battleId = battleId;
+    _myId = myId;
+    try {
+      _allBuffs = await _repo.fetchAllBuffs();
+      _startWatch();
+    } catch (e) {
+      emit(BattleError('Savaş açılamadı: $e'));
+    }
+  }
+
+  void _startWatch() {
+    _sub?.cancel();
+    _sub = _engine.watch(_battleId).listen(_onSnapshot);
+  }
+
+  void _onSnapshot(Map<String, dynamic>? data) {
+    if (data == null || isClosed) return;
+
+    // Taraf belirleme (lobide host/guest atanmadan oturup beklenebilir).
+    _mode = (data['mode'] as String?) ?? _mode;
+    final hostId = data['hostId'] as String?;
+    final guestId = data['guestId'] as String?;
+    if (_myId == hostId) {
+      _mySide = 'host';
+    } else if (_myId == guestId) {
+      _mySide = 'guest';
+    }
+    if (_mySide.isEmpty) {
+      emit(const BattleLoading(message: 'Tarafın atanması bekleniyor...'));
+      return;
+    }
+
+    final status = data['status'] as String?;
+    if (status == 'lobby') {
+      emit(const BattleLoading(message: 'Rakip bekleniyor...'));
+      _ensureHeartbeat();
+      return;
+    }
+    if (status == 'aborted') {
+      emit(const BattleError('Savaş iptal edildi.'));
+      return;
+    }
+    if (status == 'finished') {
+      final r = BattleDocMapper.buildResult(
+        doc: data,
+        mySide: _mySide,
+        allBuffs: _allBuffs,
+      );
+      emit(r);
+      _stopHeartbeat();
+      return;
+    }
+    if (status != 'in_progress') return;
+
+    _ensureHeartbeat();
+
+    final seq = (data['seq'] as num?)?.toInt() ?? 0;
+    var st = BattleDocMapper.buildPerspective(
+      doc: data,
+      mySide: _mySide,
+      allBuffs: _allBuffs,
+      battleId: _battleId,
+    );
+    // Animasyon yalnız yeni seq için tetiklenir.
+    if (seq <= _lastAnimatedSeq) {
+      st = st.copyWith(clearAction: true);
+    } else if (st.currentAction != null) {
+      _lastAnimatedSeq = seq;
+    }
+    // Yerel seçim durumunu yeniden bindir.
+    st = _withLocalSelection(st);
+    emit(st);
+  }
+
+  BattleInProgress _withLocalSelection(BattleInProgress st) {
+    var out = st;
+    if (_selectedHeroIndex == null) {
+      out = out.copyWith(clearSelection: true);
+    } else {
+      // Seçili hero hâlâ playerTeam'de mi? (swap sonrası kayabilir.)
+      if (_selectedHeroIndex! >= out.playerTeam.length) {
+        _selectedHeroIndex = null;
+        out = out.copyWith(clearSelection: true);
+      } else {
+        out = out.copyWith(selectedHeroIndex: _selectedHeroIndex);
+        if (_selectedTargetIndex == null) {
+          out = out.copyWith(clearTarget: true);
+        } else if (_selectedTargetIndex! >= out.enemyTeam.length) {
+          _selectedTargetIndex = null;
+          out = out.copyWith(clearTarget: true);
+        } else {
+          out = out.copyWith(selectedTargetIndex: _selectedTargetIndex);
+        }
+      }
+    }
+    return out;
+  }
+
+  // ── UI intent'leri ─────────────────────────────────────────────────────
+
   void selectHero(int index, bool isEnemy) {
-    if (state is! BattleInProgress) return;
-    final newState = _selectHeroUseCase.execute(state as BattleInProgress, index, isEnemy);
-    emit(newState);
-  }
-
-  /// Oyuncu saldırısını başlatır (Animasyonu tetikler)
-  @override
-  void executePlayerAttack() {
-    if (state is! BattleInProgress) return;
-    final newState = _executePlayerAttackUseCase.execute(state as BattleInProgress);
-    emit(newState);
-  }
-
-  /// Animasyon tamamlandığında hasarı uygular
-  @override
-  void onAnimationComplete() {
-    if (state is! BattleInProgress) return;
-    final currentState = state as BattleInProgress;
-    final action = currentState.currentAction;
-    if (action == null) return;
-
-    if (action.isPlayerAttacking) {
-      // Hedefin hasar öncesi HP'sini sakla.
-      final hpBefore = currentState.enemyTeam
-              .firstWhere((e) => e.id == action.target.id, orElse: () => action.target)
-              .health;
-
-      final newState = _applyPlayerAttackUseCase.execute(currentState, action);
-      emit(newState);
-
-      if (newState is BattleInProgress) {
-        final hpAfter = newState.enemyTeam
-            .firstWhere((e) => e.id == action.target.id, orElse: () => action.target)
-            .health;
-        final dealt = (hpBefore - hpAfter).clamp(0, 1 << 30);
-        _logBattleEventUseCase.log(
-          stateAfter: newState,
-          side: 'player',
-          type: 'attack',
-          message: newState.battleLogs.isNotEmpty
-              ? newState.battleLogs.first
-              : '${action.attacker.name}, ${action.target.name} birimine $dealt hasar verdi.',
-          actor: LogBattleEventUseCase.heroRef(action.attacker, isBot: false),
-          target: LogBattleEventUseCase.heroRef(action.target, isBot: true),
-          damage: {'finalDamage': dealt},
-          result: {
-            'targetHpAfter': hpAfter,
-            'killed': hpAfter <= 0,
-          },
-        );
-
-        if (!newState.isPlayerTurn) {
-          _executeEnemyTurn();
-        }
-      } else if (newState is BattleResult && newState.isVictory) {
-        _logBattleEventUseCase.log(
-          stateAfter: currentState,
-          side: 'system',
-          type: 'battle_end',
-          message: newState.message,
-        );
-        _finalizeXp(isVictory: true, finalState: currentState, result: newState);
-      }
+    final s = state;
+    if (s is! BattleInProgress) return;
+    if (!s.isPlayerTurn) return;
+    if (isEnemy) {
+      if (_selectedHeroIndex == null) return;
+      if (!s.enemyTeam[index].isAlive) return;
+      _selectedTargetIndex = _selectedTargetIndex == index ? null : index;
     } else {
-      // Düşman saldırı animasyonu bittiğinde akışı devam ettir
-      _enemyAnimationCompleter?.complete();
-    }
-  }
-
-  Completer<void>? _enemyAnimationCompleter;
-
-  /// Sahadaki kahramanı yedek kadrodan biriyle değiştirir.
-  @override
-  void swapHero(int fieldIndex, int benchIndex) {
-    if (state is! BattleInProgress) return;
-    final before = state as BattleInProgress;
-    final fieldHero = before.playerTeam[fieldIndex];
-    final benchHero = before.benchHeroes[benchIndex];
-    final newState = _swapHeroUseCase.execute(before, fieldIndex, benchIndex);
-    emit(newState);
-    if (newState is BattleInProgress) {
-      _logBattleEventUseCase.log(
-        stateAfter: newState,
-        side: 'player',
-        type: 'swap',
-        message: '${fieldHero.name} sahadan çekildi, yerine ${benchHero.name} geçti.',
-        actor: LogBattleEventUseCase.heroRef(benchHero, isBot: false),
-        target: LogBattleEventUseCase.heroRef(fieldHero, isBot: false),
-      );
-      if (!newState.isPlayerTurn) {
-        _executeEnemyTurn();
+      final hero = s.playerTeam[index];
+      if (!hero.isAlive || s.actedHeroIds.contains(hero.id)) return;
+      if (_selectedHeroIndex == index) {
+        _selectedHeroIndex = null;
+        _selectedTargetIndex = null;
+      } else {
+        _selectedHeroIndex = index;
+        _selectedTargetIndex = null;
       }
     }
+    emit(_withLocalSelection(s));
   }
 
-  /// Seçilen kahraman için Töz kartı kullan
-  @override
-  void useSkill(int heroIndex, SkillEntity skill) {
-    if (state is! BattleInProgress) return;
-    final before = state as BattleInProgress;
-    final hero = before.playerTeam[heroIndex];
-    final newState = _useSkillUseCase.execute(before, heroIndex, skill);
-    emit(newState);
-    if (newState is BattleInProgress &&
-        newState.usedSkillIds.contains(skill.id) &&
-        !before.usedSkillIds.contains(skill.id)) {
-      _logBattleEventUseCase.log(
-        stateAfter: newState,
-        side: 'player',
-        type: 'skill',
-        message: newState.battleLogs.isNotEmpty
-            ? newState.battleLogs.first
-            : '${hero.name} ${skill.name} kullandı.',
-        actor: LogBattleEventUseCase.heroRef(hero, isBot: false),
-        skill: {'id': skill.id, 'name': skill.name, 'kind': skill.type.name},
-      );
-    }
-  }
-
-  /// Düşman Yapay Zekası
-  Future<void> _executeEnemyTurn() async {
-    if (state is! BattleInProgress) return;
-
-    BattleInProgress? lastEmitted = state as BattleInProgress;
-
-    await _executeEnemyTurnUseCase.execute(
-      currentState: state as BattleInProgress,
-      onEmit: (newState) {
-        emit(newState);
-        if (newState is BattleInProgress) {
-          // Düşman saldırı state geçişlerini gözleyerek event üret.
-          final prev = lastEmitted;
-          if (prev != null) {
-            final action = newState.currentAction;
-            // Saldırı sonrası emit (hasar uygulanmış): currentAction null olabilir.
-            if (action == null && prev.currentAction != null && !prev.currentAction!.isPlayerAttacking) {
-              final atk = prev.currentAction!.attacker;
-              final tgt = prev.currentAction!.target;
-              final hpBefore = prev.playerTeam
-                  .firstWhere((p) => p.id == tgt.id, orElse: () => tgt)
-                  .health;
-              final hpAfter = newState.playerTeam
-                  .firstWhere((p) => p.id == tgt.id, orElse: () => tgt)
-                  .health;
-              final dealt = (hpBefore - hpAfter).clamp(0, 1 << 30);
-              _logBattleEventUseCase.log(
-                stateAfter: newState,
-                side: 'enemy',
-                type: 'attack',
-                message: newState.battleLogs.isNotEmpty
-                    ? newState.battleLogs.first
-                    : '${atk.name} → ${tgt.name} ($dealt hasar)',
-                actor: LogBattleEventUseCase.heroRef(atk, isBot: true),
-                target: LogBattleEventUseCase.heroRef(tgt, isBot: false),
-                damage: {'finalDamage': dealt},
-                result: {'targetHpAfter': hpAfter, 'killed': hpAfter <= 0},
-              );
-            }
-            // Yeni tur başladıysa
-            if (newState.currentTurn > prev.currentTurn) {
-              _logBattleEventUseCase.log(
-                stateAfter: newState,
-                side: 'system',
-                type: 'turn_start',
-                message: 'Yeni tur: ${newState.currentTurn}',
-              );
-            }
-          }
-          lastEmitted = newState;
-        } else if (newState is BattleResult) {
-          _logBattleEventUseCase.log(
-            stateAfter: lastEmitted!,
-            side: 'system',
-            type: 'battle_end',
-            message: newState.message,
-          );
-        }
-      },
-      waitForAnimation: () async {
-        _enemyAnimationCompleter = Completer<void>();
-        await _enemyAnimationCompleter!.future;
-        _enemyAnimationCompleter = null;
-      },
-      onFinalize: (isVictory) => _finalizeXp(
-        isVictory: isVictory,
-        finalState: lastEmitted,
-      ),
+  void executePlayerAttack() {
+    final s = state;
+    if (s is! BattleInProgress) return;
+    if (!s.isPlayerTurn) return;
+    final hIdx = _selectedHeroIndex;
+    final tIdx = _selectedTargetIndex;
+    if (hIdx == null || tIdx == null) return;
+    final attacker = s.playerTeam[hIdx];
+    final target = s.enemyTeam[tIdx];
+    _selectedHeroIndex = null;
+    _selectedTargetIndex = null;
+    _engine.submitAttack(
+      battleId: _battleId,
+      mySide: _mySide,
+      actorInstanceId: attacker.id,
+      targetInstanceId: target.id,
     );
   }
 
-  /// Savaş sonunda kahramanlara XP'lerini dağıtır ve Firestore kaydını kapatır.
-  Future<void> _finalizeXp({
-    required bool isVictory,
-    BattleInProgress? finalState,
-    BattleResult? result,
-  }) async {
-    final stateForXp = state is BattleInProgress ? state as BattleInProgress : finalState;
-    if (stateForXp != null) {
-      await _finalizeXpUseCase.execute(
-        currentState: stateForXp,
-        isVictory: isVictory,
-      );
-      // XP kazanımlarını hesapla (FinalizeXpUseCase ile aynı formül)
-      final heroXpGained = <String, int>{};
-      for (final hero in [...stateForXp.playerTeam, ...stateForXp.benchHeroes]) {
-        final dmgXp = (stateForXp.totalDamageDealt[hero.id] ?? 0).round();
-        heroXpGained[hero.id] = dmgXp + (isVictory ? 300 : 0);
-      }
-      await _logBattleEventUseCase.finalize(
-        isVictory: isVictory,
-        message: result?.message ?? (isVictory ? 'Zafer' : 'Mağlubiyet'),
-        rewards: result?.rewards ?? const [],
-        lastState: stateForXp,
-        heroXpGained: heroXpGained,
-      );
-    }
+  void onAnimationComplete() {
+    final s = state;
+    if (s is! BattleInProgress) return;
+    if (s.currentAction == null) return;
+    emit(s.copyWith(clearAction: true));
   }
 
-  /// UI Tarafından Töz kontrolü için yardımcı metod (Logic UseCase'de kalır)
-  @override
+  void swapHero(int fieldIndex, int benchIndex) {
+    final s = state;
+    if (s is! BattleInProgress) return;
+    if (!s.isPlayerTurn) return;
+    _selectedHeroIndex = null;
+    _selectedTargetIndex = null;
+    _engine.submitSwap(
+      battleId: _battleId,
+      mySide: _mySide,
+      fieldIndex: fieldIndex,
+      benchIndex: benchIndex,
+    );
+  }
+
+  void useSkill(int heroIndex, SkillEntity skill) {
+    final s = state;
+    if (s is! BattleInProgress) return;
+    if (!s.isPlayerTurn) return;
+    final hero = s.playerTeam[heroIndex];
+    _engine.submitSkill(
+      battleId: _battleId,
+      mySide: _mySide,
+      actorInstanceId: hero.id,
+      skillId: skill.id,
+    );
+  }
+
   bool isSkillPrerequisiteMet(HeroCardEntity hero, SkillEntity skill) {
-    if (state is! BattleInProgress) return false;
-    return _useSkillUseCase.isSkillPrerequisiteMet(state as BattleInProgress, hero, skill);
+    final s = state;
+    if (s is! BattleInProgress) return false;
+    return _useSkillUseCase.isSkillPrerequisiteMet(s, hero, skill);
+  }
+
+  // ── Heartbeat (sadece PvP'de anlamlı) ──────────────────────────────────
+
+  void _ensureHeartbeat() {
+    if (_mode != 'pvp' || _heartbeat != null || _mySide.isEmpty) return;
+    _heartbeat = Timer.periodic(const Duration(seconds: 8), (_) {
+      _engine.heartbeat(battleId: _battleId, mySide: _mySide);
+    });
+  }
+
+  void _stopHeartbeat() {
+    _heartbeat?.cancel();
+    _heartbeat = null;
+  }
+
+  @override
+  Future<void> close() {
+    _stopHeartbeat();
+    _sub?.cancel();
+    return super.close();
   }
 }

@@ -4,22 +4,15 @@ import '../../feature/battle/domain/repository/battle_repository.dart';
 import '../../feature/battle/data/repository/battle_repository_impl.dart';
 import '../../feature/battle/data/datasources/battle_datasource.dart';
 import '../../feature/battle/data/datasources/firebase_battle_datasource_impl.dart';
-import '../../feature/battle/data/datasources/battle_log_datasource.dart';
-import '../../feature/battle/data/datasources/firebase_battle_log_datasource_impl.dart';
-import '../../feature/battle/domain/usecases/log_battle_event_usecase.dart';
+import '../../feature/battle/data/datasources/battle_engine_datasource.dart';
+import '../../feature/battle/data/datasources/firestore_battle_engine.dart';
+import '../../feature/battle/domain/services/bot_ai.dart';
 import '../../feature/battle/presentation/manager/battle_cubit.dart';
-import '../../feature/battle/domain/usecases/start_battle_usecase.dart';
 import '../../feature/battle/domain/usecases/select_hero_usecase.dart';
-import '../../feature/battle/domain/usecases/execute_player_attack_usecase.dart';
-import '../../feature/battle/domain/usecases/apply_player_attack_usecase.dart';
 import '../../feature/battle/domain/usecases/use_skill_usecase.dart';
-import '../../feature/battle/domain/usecases/execute_enemy_turn_usecase.dart';
-import '../../feature/battle/domain/usecases/finalize_xp_usecase.dart';
 import '../../feature/battle/domain/usecases/handle_buffs_usecase.dart';
 import '../../feature/battle/domain/usecases/swap_hero_usecase.dart';
 import '../../feature/battle/domain/usecases/fetch_user_heroes_usecase.dart';
-import '../../feature/pvp/data/match_service.dart';
-import '../../feature/pvp/presentation/pvp_battle_cubit.dart';
 
 // Küresel servis bulucu (Service Locator)
 final sl = GetIt.instance;
@@ -31,52 +24,42 @@ Future<void> setupLocator() async {
 
   // Data - DataSources
   sl.registerLazySingleton<BattleDataSource>(() => FirebaseBattleDataSourceImpl());
-  sl.registerLazySingleton<BattleLogDataSource>(() => FirebaseBattleLogDataSourceImpl());
 
   // Data - Repositories
   sl.registerLazySingleton<BattleRepository>(() => BattleRepositoryImpl(sl()));
 
-  // Domain - Use Cases
+  // Domain - Use Cases (engine kuralları için reuse edilir)
   sl.registerLazySingleton(() => HandleBuffsUseCase());
-  sl.registerLazySingleton(() => StartBattleUseCase(sl()));
   sl.registerLazySingleton(() => SelectHeroUseCase());
-  sl.registerLazySingleton(() => ExecutePlayerAttackUseCase());
-  sl.registerLazySingleton(() => ApplyPlayerAttackUseCase(sl()));
   sl.registerLazySingleton(() => UseSkillUseCase(sl()));
-  sl.registerLazySingleton(() => ExecuteEnemyTurnUseCase(sl()));
-  sl.registerLazySingleton(() => FinalizeXpUseCase(sl()));
   sl.registerLazySingleton(() => SwapHeroUseCase(sl()));
   sl.registerLazySingleton(() => FetchUserHeroesUseCase(sl()));
-  sl.registerFactory(() => LogBattleEventUseCase(sl()));
 
-  // Presentation - Cubit
+  // Domain - Services
+  sl.registerLazySingleton(() => BotAi());
+
+  // Data - Engine (tek pipeline savaş motoru)
+  sl.registerLazySingleton<BattleEngineDataSource>(() => FirestoreBattleEngine(
+        repository: sl(),
+        buffs: sl<HandleBuffsUseCase>(),
+        useSkill: sl<UseSkillUseCase>(),
+        swap: sl<SwapHeroUseCase>(),
+        bot: sl<BotAi>(),
+      ));
+
+  // Presentation - Cubit (tek cubit, PvE/PvP)
   sl.registerFactory(() => BattleCubit(
-    sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(),
-  ));
-
-  //----------------------------------------------------------------------------
-  // FEATURE - PvP (Multiplayer)
-  //----------------------------------------------------------------------------
-  sl.registerLazySingleton(() => MatchService());
-  sl.registerFactory(() => PvpBattleCubit(
-    sl<MatchService>(),
-    sl<BattleRepository>(),
-    sl<SelectHeroUseCase>(),
-    sl<ExecutePlayerAttackUseCase>(),
-    sl<ApplyPlayerAttackUseCase>(),
-    sl<UseSkillUseCase>(),
-    sl<SwapHeroUseCase>(),
-    sl<HandleBuffsUseCase>(),
-    sl<LogBattleEventUseCase>(),
-  ));
+        sl<BattleEngineDataSource>(),
+        sl<BattleRepository>(),
+        sl<UseSkillUseCase>(),
+      ));
 
   //----------------------------------------------------------------------------
   // CORE / EXTERNAL
   //----------------------------------------------------------------------------
 
-  // Firebase veya diğer harici servisler buraya gelecek.
   sl.registerLazySingleton<FirebaseService>(() => FirebaseService());
-  
+
   // Geçici olarak statik giriş yap (Geliştirme aşaması için)
   final firebaseService = sl<FirebaseService>();
   await firebaseService.signInWithEmailAndPassword('kam@official.com', '123456');
