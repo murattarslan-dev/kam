@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../battle/domain/entities/hero_entities.dart';
 import '../enum_labels.dart';
 import '../widgets/admin_scaffold.dart';
+import 'admin_home_screen.dart';
 
 class HeroAdminScreen extends StatefulWidget {
   const HeroAdminScreen({super.key});
@@ -194,7 +194,7 @@ class _HeroAdminScreenState extends State<HeroAdminScreen> {
                 ),
                 if (_editingId != null) ...[
                   TextButton.icon(
-                    onPressed: () => context.go('/admin/skills?heroId=$_editingId'),
+                    onPressed: () => AdminTabBus.of(context).openSkills(heroId: _editingId),
                     icon: const Icon(Icons.auto_awesome),
                     label: const Text('Yetenekler'),
                   ),
@@ -415,7 +415,7 @@ class _HeroAdminScreenState extends State<HeroAdminScreen> {
                             tooltip: 'Yetenekler',
                             icon: const Icon(Icons.auto_awesome, size: 18),
                             onPressed: () =>
-                                context.go('/admin/skills?heroId=${doc.id}'),
+                                AdminTabBus.of(context).openSkills(heroId: doc.id),
                           ),
                           IconButton(
                             icon: const Icon(Icons.edit, size: 18),

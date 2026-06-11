@@ -56,13 +56,18 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     required List<HeroCardEntity> bench,
   }) async {
     final all = await _repo.fetchAllHeroes();
-    if (all.length < 3) {
+    if (all.length < 5) {
       throw StateError('Düşman takımı için yeterli kahraman yok');
     }
+    final avgXp = playerTeam.isEmpty
+        ? 0
+        : (playerTeam.map((h) => h.xp).reduce((a, b) => a + b) /
+                playerTeam.length)
+            .round();
     final pool = List<HeroCardEntity>.from(all)..shuffle(_rng);
-    final enemies = pool.take(3).map((h) {
+    final enemies = pool.take(5).map((h) {
       return HeroCardEntity.fromMap(
-        h.toMap()..['xp'] = 2364,
+        h.toMap()..['xp'] = avgXp,
         skills: h.skillCards,
       );
     }).toList();

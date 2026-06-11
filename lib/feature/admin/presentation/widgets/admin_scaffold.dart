@@ -1,21 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
-class AdminDestination {
-  final String label;
-  final IconData icon;
-  final String path;
-  const AdminDestination({required this.label, required this.icon, required this.path});
-}
-
-const adminDestinations = <AdminDestination>[
-  AdminDestination(label: 'Buff\'lar', icon: Icons.flash_on, path: '/admin/buffs'),
-  AdminDestination(label: 'Kahramanlar', icon: Icons.shield, path: '/admin/heroes'),
-  AdminDestination(label: 'Yetenekler', icon: Icons.auto_awesome, path: '/admin/skills'),
-  AdminDestination(label: 'Kullanıcılar', icon: Icons.people, path: '/admin/users'),
-  AdminDestination(label: 'Savaşlar', icon: Icons.history, path: '/admin/battles'),
-];
-
+/// Tüm admin sayfaları tek bir tablı [AdminScreen] içinde toplandığı için
+/// [AdminScaffold] artık kendi Scaffold/AppBar/Nav'ını oluşturmaz —
+/// sadece child'ı opsiyonel aksiyonlarla birlikte gösterir.
 class AdminScaffold extends StatelessWidget {
   final String title;
   final String currentPath;
@@ -32,80 +19,18 @@ class AdminScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = adminDestinations.indexWhere((d) => currentPath.startsWith(d.path));
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const Icon(Icons.tune, size: 20),
-            const SizedBox(width: 8),
-            Text('Admin · $title'),
-          ],
-        ),
-        actions: [
-          ...actions,
-          const SizedBox(width: 8),
-          IconButton(
-            tooltip: 'Oyuna dön',
-            icon: const Icon(Icons.exit_to_app),
-            onPressed: () => context.go('/team-setup'),
+    if (actions.isEmpty) return child;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: actions,
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: LayoutBuilder(
-        builder: (context, c) {
-          final wide = c.maxWidth >= 720;
-          if (wide) {
-            return Row(
-              children: [
-                NavigationRail(
-                  extended: c.maxWidth >= 1100,
-                  selectedIndex: selected < 0 ? 0 : selected,
-                  onDestinationSelected: (i) =>
-                      context.go(adminDestinations[i].path),
-                  labelType: c.maxWidth >= 1100
-                      ? NavigationRailLabelType.none
-                      : NavigationRailLabelType.all,
-                  destinations: adminDestinations
-                      .map((d) => NavigationRailDestination(
-                            icon: Icon(d.icon),
-                            label: Text(d.label),
-                          ))
-                      .toList(),
-                ),
-                const VerticalDivider(width: 1),
-                Expanded(child: child),
-              ],
-            );
-          }
-          return Column(
-            children: [
-              SizedBox(
-                height: 56,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  itemCount: adminDestinations.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (ctx, i) {
-                    final d = adminDestinations[i];
-                    final isSel = i == (selected < 0 ? 0 : selected);
-                    return ChoiceChip(
-                      avatar: Icon(d.icon, size: 16),
-                      label: Text(d.label),
-                      selected: isSel,
-                      onSelected: (_) => context.go(d.path),
-                    );
-                  },
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(child: child),
-            ],
-          );
-        },
-      ),
+        ),
+        Expanded(child: child),
+      ],
     );
   }
 }
