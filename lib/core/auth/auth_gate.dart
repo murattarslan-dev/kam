@@ -11,10 +11,12 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = sl<AuthService>();
     return StreamBuilder<User?>(
-      stream: sl<AuthService>().userChanges,
+      stream: auth.userChanges,
+      initialData: auth.currentUser,
       builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
+        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
           return const _Loading();
         }
         if (snap.data == null) return const AuthScreen();

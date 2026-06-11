@@ -20,7 +20,13 @@ class AuthService {
   static const Set<String> adminEmails = {'kam@official.com'};
 
   User? get currentUser => _auth.currentUser;
-  Stream<User?> get userChanges => _auth.authStateChanges();
+
+  // Tek bir broadcast stream'i cache'le. Aksi halde her getter çağrısında
+  // yeni stream döner, StreamBuilder'ı 'waiting' durumuna sokar ve resize
+  // gibi rebuild'lerde tüm widget ağacının (router+state) sıfırlanmasına yol açar.
+  Stream<User?>? _userChanges;
+  Stream<User?> get userChanges =>
+      _userChanges ??= _auth.authStateChanges().asBroadcastStream();
 
   bool get isAdmin {
     final email = _auth.currentUser?.email?.toLowerCase();
