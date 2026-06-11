@@ -690,7 +690,15 @@ class _BattleViewState extends State<BattleView> {
                   isEnemy: isEnemy,
                   isSelected: isSelected,
                   reactionMultiplier: reaction,
-                  onTap: () => context.read<BattleCubit>().selectHero(index, isEnemy),
+                  onTap: () {
+                    if (!isEnemy && !card.isAlive) {
+                      if (state.benchHeroes.isNotEmpty && state.isPlayerTurn) {
+                        _showSwapDialogFor(context, state, index);
+                      }
+                      return;
+                    }
+                    context.read<BattleCubit>().selectHero(index, isEnemy);
+                  },
                   onLongPress: () => HeroDetailDialog.show(context, card),
                   onTozPressed: (!isEnemy && isSelected && state.isPlayerTurn)
                       ? () => _showTozDialog(context, state)
@@ -730,6 +738,11 @@ class _BattleViewState extends State<BattleView> {
   void _showSwapDialog(BuildContext context, BattleInProgress state) {
     final heroIndex = state.selectedHeroIndex;
     if (heroIndex == null) return;
+    _showSwapDialogFor(context, state, heroIndex);
+  }
+
+  void _showSwapDialogFor(BuildContext context, BattleInProgress state, int heroIndex) {
+    if (heroIndex < 0 || heroIndex >= state.playerTeam.length) return;
     final fieldHero = state.playerTeam[heroIndex];
     // Cubit'i dialog açılmadan önce yakala — dialog içindeki context'ler
     // BlocProvider'a ulaşamadığından bu referans kapatma (closure) yoluyla kullanılır.

@@ -63,7 +63,7 @@ class KamCardWidget extends StatelessWidget {
           Positioned(
             top: 15, left: 0, right: 0, bottom: 0,
             child: GestureDetector(
-              onTap: card.isAlive ? onTap : null,
+              onTap: onTap,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 decoration: BoxDecoration(
