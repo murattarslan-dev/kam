@@ -915,15 +915,32 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
 
       final allBuffs = await _repo.fetchAllBuffs();
       final st = _buildActorState(data, 'guest', allBuffs);
-      final move = _bot.nextMove(st);
-      if (move == null) return;
+      final action = _bot.nextAction(st);
+      if (action == null) return;
 
-      await submitAttack(
-        battleId: battleId,
-        mySide: 'guest',
-        actorInstanceId: move.actorInstanceId,
-        targetInstanceId: move.targetInstanceId,
-      );
+      switch (action) {
+        case BotAttack():
+          await submitAttack(
+            battleId: battleId,
+            mySide: 'guest',
+            actorInstanceId: action.actorInstanceId,
+            targetInstanceId: action.targetInstanceId,
+          );
+        case BotSkill():
+          await submitSkill(
+            battleId: battleId,
+            mySide: 'guest',
+            actorInstanceId: action.actorInstanceId,
+            skillId: action.skillId,
+          );
+        case BotSwap():
+          await submitSwap(
+            battleId: battleId,
+            mySide: 'guest',
+            fieldIndex: action.fieldIndex,
+            benchIndex: action.benchIndex,
+          );
+      }
     }
   }
 }
