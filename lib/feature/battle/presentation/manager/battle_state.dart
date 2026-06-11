@@ -50,6 +50,11 @@ final class BattleInProgress extends BattleState {
   // İstatistik Takibi (Opsiyonel Detaylar)
   final Map<String, double> totalDamageDealt;    // Kahraman ID bazlı toplam verilen hasar
   final Map<String, double> totalDamageReceived; // Kahraman ID bazlı toplam alınan hasar
+  // Kim kimi öldürdü kayıtları — her giriş:
+  //   {killerInstanceId, killerName, victimInstanceId, victimName,
+  //    victimAttack, victimDefense, turn}
+  // Savaş sonunda bonus XP (atk+def toplamı) ve "seri katil" gibi unvanlar için.
+  final List<Map<String, dynamic>> kills;
   final Map<String, int> turnsSinceEffect;        // Buff/Debuff süre takibi için
   
   // Yetenek Takibi
@@ -88,6 +93,7 @@ final class BattleInProgress extends BattleState {
     this.battleLogs = const ["Savaş başladı!"],
     this.totalDamageDealt = const {},
     this.totalDamageReceived = const {},
+    this.kills = const [],
     this.turnsSinceEffect = const {},
     this.usedSkillIds = const [],
     this.currentAction,
@@ -113,6 +119,7 @@ final class BattleInProgress extends BattleState {
     List<String>? battleLogs,
     Map<String, double>? totalDamageDealt,
     Map<String, double>? totalDamageReceived,
+    List<Map<String, dynamic>>? kills,
     Map<String, int>? turnsSinceEffect,
     List<String>? usedSkillIds,
     BattleAction? currentAction,
@@ -140,6 +147,7 @@ final class BattleInProgress extends BattleState {
       battleLogs: battleLogs ?? this.battleLogs,
       totalDamageDealt: totalDamageDealt ?? this.totalDamageDealt,
       totalDamageReceived: totalDamageReceived ?? this.totalDamageReceived,
+      kills: kills ?? this.kills,
       turnsSinceEffect: turnsSinceEffect ?? this.turnsSinceEffect,
       usedSkillIds: usedSkillIds ?? this.usedSkillIds,
       currentAction: clearAction ? null : (currentAction ?? this.currentAction),
@@ -158,32 +166,12 @@ final class BattleInProgress extends BattleState {
   bool get canEndTurn => actedHeroIds.length == playerTeam.where((h) => h.isAlive).length;
 }
 
-final class BattleResult extends BattleState {
-  final String message;
-  final bool isVictory;
-  final List<String> rewards;
-
-  // Özet ekranı için savaş istatistikleri
-  final List<HeroCardEntity> playerTeam;
-  final List<HeroCardEntity> benchHeroes;
-  final Map<String, double> totalDamageDealt;
-  final Map<String, double> totalDamageReceived;
-  final Map<String, int> heroXpGained; // heroId → kazanılan XP
-  final List<ActiveBuff> activeBuffs;
-  final List<BuffEntity> allBuffs;
-
-  const BattleResult({
-    required this.message,
-    required this.isVictory,
-    this.rewards = const [],
-    this.playerTeam = const [],
-    this.benchHeroes = const [],
-    this.totalDamageDealt = const {},
-    this.totalDamageReceived = const {},
-    this.heroXpGained = const {},
-    this.activeBuffs = const [],
-    this.allBuffs = const [],
-  });
+/// Savaş bitti sinyali — UI bu sinyali görür görmez savaş ekranını kapatır
+/// ve ayrı bir BattleResultScreen açar. Detaylar Firestore dokümanından okunur.
+final class BattleFinished extends BattleState {
+  final String battleId;
+  final String mySide; // 'host' | 'guest'
+  const BattleFinished({required this.battleId, required this.mySide});
 }
 
 final class BattleError extends BattleState {

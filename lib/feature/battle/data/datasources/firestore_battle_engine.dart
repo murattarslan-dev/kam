@@ -444,6 +444,18 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     dmgMap[attacker.id] = (dmgMap[attacker.id] ?? 0) + finalDamage;
     final recvMap = Map<String, double>.from(state.totalDamageReceived);
     recvMap[target.id] = (recvMap[target.id] ?? 0) + finalDamage;
+    final killsList = List<Map<String, dynamic>>.from(state.kills);
+    if (killed) {
+      killsList.add({
+        'killerInstanceId': attacker.id,
+        'killerName': attacker.name,
+        'victimInstanceId': target.id,
+        'victimName': target.name,
+        'victimAttack': target.attackPower,
+        'victimDefense': target.defensePower,
+        'turn': state.currentTurn,
+      });
+    }
 
     final acted = [...state.actedHeroIds, attacker.id];
 
@@ -466,6 +478,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       enemyTeam: updatedEnemy,
       totalDamageDealt: dmgMap,
       totalDamageReceived: recvMap,
+      kills: killsList,
       actedHeroIds: acted,
       battleLogs: [logLine, ...state.battleLogs],
     );
@@ -697,6 +710,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
           next.activeBuffs.map(BattleDocMapper.activeBuffToDoc).toList(),
       'totalDamageDealt': next.totalDamageDealt,
       'totalDamageReceived': next.totalDamageReceived,
+      'kills': next.kills,
       'battleLogs': next.battleLogs.take(60).toList(),
       'hostTeam': BattleDocMapper.teamToDoc(newHostTeam),
       'guestTeam': BattleDocMapper.teamToDoc(newGuestTeam),
@@ -730,49 +744,80 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       if (raw is Map) raw.forEach((k, v) => out[k.toString()] = (v as num).toDouble());
       return out;
     }
-
     final dealt = asDoubleMap(patch['totalDamageDealt']);
     final received = asDoubleMap(patch['totalDamageReceived']);
+    final killsRaw = (patch['kills'] as List?) ?? const [];
+    final allKills = killsRaw
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    // killer → kendi öldürdüğü kahramanlar
+    final killsByHero = <String, List<Map<String, dynamic>>>{};
+    for (final k in allKills) {
+      final killer = k['killerInstanceId'] as String?;
+      if (killer == null) continue;
+      (killsByHero[killer] ??= []).add(k);
+    }
+    // killer → bonus XP (öldürdüğü kahramanların atk+def toplamı)
+    int killBonusFor(String heroId) {
+      final list = killsByHero[heroId];
+      if (list == null) return 0;
+      return list.fold<int>(
+        0,
+        (a, k) =>
+            a +
+            ((k['victimAttack'] as num?)?.toInt() ?? 0) +
+            ((k['victimDefense'] as num?)?.toInt() ?? 0),
+      );
+    }
 
-    final hostBenchIds = hostBench.map((h) => h.id).toSet();
-    final guestBenchIds = guestBench.map((h) => h.id).toSet();
-
-    int xpFor(HeroCardEntity h, bool isWinner) {
+    // XP kuralı:
+    //  - Verilen hasar kadar XP.
+    //  - KO yapan kahraman ek olarak öldürdüğü kahramanın cp'si kadar XP (koBonus).
+    //  - Savaş sonunda kazanan takımın hayatta kalan kahramanları kalan canları kadar XP.
+    Map<String, dynamic> heroStat(HeroCardEntity h, String side, bool isBench, bool isWinnerSide) {
       final dmg = (dealt[h.id] ?? 0).round();
-      return dmg + (isWinner ? 300 : 0);
+      final killBonus = killBonusFor(h.id);
+      final survivalBonus = (isWinnerSide && h.isAlive) ? h.health : 0;
+      final ownKills = killsByHero[h.id] ?? const [];
+      return {
+        'instanceId': h.id,
+        'name': h.name,
+        'imageUrl': h.imageUrl,
+        'side': side,
+        'isBench': isBench,
+        'isAlive': h.isAlive,
+        'damageDealt': dmg,
+        'damageReceived': (received[h.id] ?? 0).round(),
+        'killBonusXp': killBonus,
+        'survivalBonusXp': survivalBonus,
+        'kills': ownKills,
+        'xpGained': dmg + killBonus + survivalBonus,
+        if (h.userHeroDocId.isNotEmpty) 'userHeroDocId': h.userHeroDocId,
+      };
     }
 
     final heroStats = <Map<String, dynamic>>[];
-    for (final h in [...hostTeam, ...hostBench]) {
-      heroStats.add({
-        'instanceId': h.id,
-        'name': h.name,
-        'side': 'host',
-        'isBench': hostBenchIds.contains(h.id),
-        'damageDealt': (dealt[h.id] ?? 0).round(),
-        'damageReceived': (received[h.id] ?? 0).round(),
-        'xpGained': xpFor(h, winnerSide == 'host'),
-        if (h.userHeroDocId.isNotEmpty) 'userHeroDocId': h.userHeroDocId,
-      });
+    for (final h in hostTeam) {
+      heroStats.add(heroStat(h, 'host', false, winnerSide == 'host'));
     }
-    for (final h in [...guestTeam, ...guestBench]) {
-      heroStats.add({
-        'instanceId': h.id,
-        'name': h.name,
-        'side': 'guest',
-        'isBench': guestBenchIds.contains(h.id),
-        'damageDealt': (dealt[h.id] ?? 0).round(),
-        'damageReceived': (received[h.id] ?? 0).round(),
-        'xpGained': xpFor(h, winnerSide == 'guest'),
-        if (h.userHeroDocId.isNotEmpty) 'userHeroDocId': h.userHeroDocId,
-      });
+    for (final h in hostBench) {
+      heroStats.add(heroStat(h, 'host', true, winnerSide == 'host'));
+    }
+    for (final h in guestTeam) {
+      heroStats.add(heroStat(h, 'guest', false, winnerSide == 'guest'));
+    }
+    for (final h in guestBench) {
+      heroStats.add(heroStat(h, 'guest', true, winnerSide == 'guest'));
     }
 
-    final message = winnerSide == 'host'
-        ? 'ZAFER! Karanlık ordu bozguna uğratıldı.'
-        : 'MAĞLUBİYET... Kut elimizden kayıp gitti.';
-    const rewards = <String>['100 Altın', 'Kadim Ruh Parçası'];
+    // Oyuncu toplam XP'si = kendi takımındaki kahramanların toplam kazancı.
+    int sumXp(String side) => heroStats
+        .where((s) => s['side'] == side)
+        .fold<int>(0, (a, s) => a + (s['xpGained'] as int));
+    final hostTotalXp = sumXp('host');
+    final guestTotalXp = sumXp('guest');
 
+    // Kazandı/kaybetti mesajı client tarafında üretilecek; doküman nötr kalır.
     patch['updatedAt'] = FieldValue.serverTimestamp();
     patch['turnOwner'] = actorSide;
     patch['lastAction'] = lastAction;
@@ -781,11 +826,14 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     patch['result'] = {
       'winnerSide': winnerSide,
       'isHostVictory': winnerSide == 'host',
-      'message': message,
-      'rewards': rewards,
       'heroStats': heroStats,
+      'hostTotalXp': hostTotalXp,
+      'guestTotalXp': guestTotalXp,
+      'turns': finalState.currentTurn,
       'finishedAt': FieldValue.serverTimestamp(),
+      'xpGrantedFor': const <String, bool>{},
     };
+    // Geri uyumluluk: önceki sürümler hâlâ map okumaya çalışırsa boş kalsın.
 
     final ref = _col.doc(battleId);
     final batch = _fs.batch();
@@ -795,25 +843,62 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'turn': finalState.currentTurn,
       'side': 'system',
       'type': 'battle_end',
-      'message': message,
+      'message': winnerSide == 'host' ? 'Ev sahibi kazandı' : 'Konuk kazandı',
       'createdAt': FieldValue.serverTimestamp(),
     });
     await batch.commit();
-
-    await _grantXp(heroStats);
   }
 
-  /// Kazanan/kaybeden tarafa göre kullanıcının kahramanlarına XP yansıt.
-  Future<void> _grantXp(List<Map<String, dynamic>> heroStats) async {
+  /// Yalnızca bu client'ın temsil ettiği tarafa ait kahramanlara XP yansıtır.
+  /// Cubit, status=='finished' snapshot'ını alır almaz çağırır.
+  /// Idempotent: result.xpGrantedFor.{uid}=true flag'i ile guard'lanır.
+  @override
+  Future<void> grantOwnSideXp({
+    required String battleId,
+    required String mySide,
+  }) async {
+    final snap = await _col.doc(battleId).get();
+    final data = snap.data();
+    if (data == null) return;
+    final result = (data['result'] as Map?);
+    if (result == null) return;
+    final heroStats = ((result['heroStats'] as List?) ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    await _grantOwnSideXp(battleId, heroStats, mySide);
+  }
+
+  Future<void> _grantOwnSideXp(
+    String battleId,
+    List<Map<String, dynamic>> heroStats,
+    String mySide,
+  ) async {
     final user = _repo.currentUser;
     if (user == null) return;
+    final uid = user.uid;
+    final ref = _col.doc(battleId);
+    try {
+      final claimed = await _fs.runTransaction<bool>((tx) async {
+        final snap = await tx.get(ref);
+        final res = (snap.data()?['result'] as Map?) ?? const {};
+        final granted = (res['xpGrantedFor'] as Map?) ?? const {};
+        if (granted[uid] == true) return false;
+        tx.update(ref, {'result.xpGrantedFor.$uid': true});
+        return true;
+      });
+      if (!claimed) return;
+    } catch (_) {
+      return;
+    }
+
     for (final s in heroStats) {
+      if (s['side'] != mySide) continue;
       final docId = s['userHeroDocId'] as String?;
       if (docId == null || docId.isEmpty) continue;
       final gain = (s['xpGained'] as num?)?.toInt() ?? 0;
       if (gain <= 0) continue;
       try {
-        await _repo.updateHeroXp(user.uid, docId, gain);
+        await _repo.updateHeroXp(uid, docId, gain);
       } catch (_) {/* gözardı */}
     }
   }

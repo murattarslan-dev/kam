@@ -139,6 +139,9 @@ class BattleDocMapper {
     ((doc['totalDamageReceived'] as Map?) ?? const {}).forEach((k, v) {
       received[k as String] = (v as num).toDouble();
     });
+    final kills = ((doc['kills'] as List?) ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
 
     // currentAction: lastAction'ı oyuncunun perspektifinden BattleAction'a çevir.
     BattleAction? currentAction;
@@ -183,6 +186,7 @@ class BattleDocMapper {
           .toList(),
       totalDamageDealt: dealt,
       totalDamageReceived: received,
+      kills: kills,
       usedSkillIds: ((doc['usedSkillIds'] as List?) ?? const [])
           .map((e) => e.toString())
           .toList(),
@@ -201,56 +205,4 @@ class BattleDocMapper {
     );
   }
 
-  /// Result için: doc → BattleResult (mySide perspektifi).
-  static BattleResult buildResult({
-    required Map<String, dynamic> doc,
-    required String mySide,
-    required List<BuffEntity> allBuffs,
-  }) {
-    final isHostPerspective = mySide == 'host';
-    final hostTeam = teamFromDoc(doc['hostTeam'], prefix: 'h:');
-    final hostBench = teamFromDoc(doc['hostBench'], prefix: 'hb:');
-    final guestTeam = teamFromDoc(doc['guestTeam'], prefix: 'g:');
-    final guestBench = teamFromDoc(doc['guestBench'], prefix: 'gb:');
-
-    final dealt = <String, double>{};
-    ((doc['totalDamageDealt'] as Map?) ?? const {}).forEach((k, v) {
-      dealt[k as String] = (v as num).toDouble();
-    });
-    final received = <String, double>{};
-    ((doc['totalDamageReceived'] as Map?) ?? const {}).forEach((k, v) {
-      received[k as String] = (v as num).toDouble();
-    });
-
-    final result = (doc['result'] as Map?) ?? const {};
-    final winnerSide = result['winnerSide'] as String?;
-    final isVictory = winnerSide == mySide;
-
-    final heroStats = (result['heroStats'] as List?) ?? const [];
-    final xpGained = <String, int>{};
-    for (final r in heroStats) {
-      final m = Map<String, dynamic>.from(r as Map);
-      xpGained[m['instanceId'] as String] = (m['xpGained'] as num?)?.toInt() ?? 0;
-    }
-
-    final activeBuffs = ((doc['activeBuffs'] as List?) ?? const [])
-        .map((e) => activeBuffFromDoc(Map<String, dynamic>.from(e as Map)))
-        .toList();
-
-    return BattleResult(
-      message: result['message'] as String? ??
-          (isVictory ? 'Zafer!' : 'Mağlubiyet...'),
-      isVictory: isVictory,
-      rewards: ((result['rewards'] as List?) ?? const [])
-          .map((e) => e.toString())
-          .toList(),
-      playerTeam: isHostPerspective ? hostTeam : guestTeam,
-      benchHeroes: isHostPerspective ? hostBench : guestBench,
-      totalDamageDealt: dealt,
-      totalDamageReceived: received,
-      heroXpGained: xpGained,
-      activeBuffs: activeBuffs,
-      allBuffs: allBuffs,
-    );
-  }
 }

@@ -10,6 +10,7 @@ import '../../feature/admin/presentation/widgets/admin_gate.dart';
 import '../../feature/battle/domain/entities/hero_entities.dart';
 import '../../feature/battle/presentation/pages/team_setup_screen.dart';
 import '../../feature/battle/presentation/pages/battle_screen.dart';
+import '../../feature/battle/presentation/pages/battle_result_screen.dart';
 import '../../feature/home/presentation/pages/home_screen.dart';
 import '../../feature/home/presentation/pages/settings_screen.dart';
 
@@ -17,6 +18,7 @@ class AppRouter {
   static const String home = '/';
   static const String teamSetup = '/team-setup';
   static const String battle = '/battle';
+  static const String battleResult = '/battle-result';
   static const String settings = '/settings';
   static const String admin = '/admin';
   static const String adminBuffs = '/admin/buffs';
@@ -53,6 +55,14 @@ class AppRouter {
             matchId: state.uri.queryParameters['match'],
           );
         },
+      ),
+      GoRoute(
+        path: '$battleResult/:id',
+        name: 'battleResult',
+        builder: (context, state) => BattleResultScreen(
+          battleId: state.pathParameters['id'] ?? '',
+          mySide: state.uri.queryParameters['side'] ?? 'host',
+        ),
       ),
       GoRoute(
         path: settings,

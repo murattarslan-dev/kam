@@ -139,13 +139,12 @@ class BattleCubit extends Cubit<BattleState> {
       return;
     }
     if (status == 'finished') {
-      final r = BattleDocMapper.buildResult(
-        doc: data,
-        mySide: _mySide,
-        allBuffs: _allBuffs,
-      );
-      emit(r);
+      // Sadece kendi tarafımıza XP yansıt (idempotent, engine guard'lı).
+      _engine.grantOwnSideXp(battleId: _battleId, mySide: _mySide);
       _stopHeartbeat();
+      _sub?.cancel();
+      _sub = null;
+      emit(BattleFinished(battleId: _battleId, mySide: _mySide));
       return;
     }
     if (status != 'in_progress') {

@@ -83,4 +83,11 @@ abstract class BattleEngineDataSource {
 
   /// Heartbeat — sadece PvP'de anlamlı; karşı tarafın online olduğunu işaret eder.
   Future<void> heartbeat({required String battleId, required String mySide});
+
+  /// Savaş 'finished' olduktan sonra çağrılır: bu client'in kendi tarafındaki
+  /// kahramanlara XP yansıtır. Idempotent (UID bazlı guard).
+  Future<void> grantOwnSideXp({
+    required String battleId,
+    required String mySide,
+  });
 }
