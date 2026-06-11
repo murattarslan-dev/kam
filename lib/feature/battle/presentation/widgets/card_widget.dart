@@ -30,9 +30,6 @@ class KamCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double scale = isSelected && card.isAlive ? 1.08 : 1.0;
-    final double translateY = isSelected && card.isAlive ? -context.scaleH(10) : 0.0;
-
     final double cardWidth = overrideWidth ?? context.responsive(
       (context.screenWidth * 0.28).clamp(78.0, 130.0),
       tablet: 140.0,
@@ -58,10 +55,7 @@ class KamCardWidget extends StatelessWidget {
         vertical: context.responsive(8.0, tablet: 12.0),
       ),
       width: cardWidth,
-      height: cardHeight + (isSelected && card.isAlive ? 20 : 0),
-      transform: Matrix4.identity()
-        ..scale(scale, scale, 1.0)
-        ..translate(0.0, translateY, 0.0),
+      height: cardHeight,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -232,19 +226,17 @@ class KamCardWidget extends StatelessWidget {
             _buildBuffStrip(heroBuffs),
             const SizedBox(height: 4),
           ],
-          // Stats row (only when selected)
-          if (isSelected) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem(Icons.flash_on, card.currentAttackPower.toString(), Colors.orange),
-                _buildStatItem(Icons.security, card.currentDefensePower.toString(), Colors.blue),
-                if (!isEnemy)
-                  _buildStatItem(Icons.flash_on, "${card.kut}", Colors.lightBlueAccent),
-              ],
-            ),
-            const SizedBox(height: 4),
-          ],
+          // Stats row (her zaman görünür)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(Icons.flash_on, card.currentAttackPower.toString(), Colors.orange),
+              _buildStatItem(Icons.security, card.currentDefensePower.toString(), Colors.blue),
+              if (!isEnemy)
+                _buildStatItem(Icons.auto_awesome, "${card.kut}", Colors.lightBlueAccent),
+            ],
+          ),
+          const SizedBox(height: 4),
           // HP bar
           ClipRRect(
             borderRadius: BorderRadius.circular(2),
@@ -286,27 +278,25 @@ class KamCardWidget extends StatelessWidget {
               ),
             ],
           ),
-          // Level + HP text (only when selected)
-          if (isSelected) ...[
-            const SizedBox(height: 2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Lv ${card.level}",
-                  style: TextStyle(
-                    color: card.isAlive ? Colors.purpleAccent : Colors.grey,
-                    fontSize: 7,
-                    fontWeight: FontWeight.bold,
-                  ),
+          // Level + HP text (her zaman görünür)
+          const SizedBox(height: 2),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Lv ${card.level}",
+                style: TextStyle(
+                  color: card.isAlive ? Colors.purpleAccent : Colors.grey,
+                  fontSize: 7,
+                  fontWeight: FontWeight.bold,
                 ),
-                Text(
-                  card.isAlive ? "HP ${card.health}/${card.currentCp}" : "CAN TÜKENDİ",
-                  style: const TextStyle(color: Colors.white60, fontSize: 7, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ],
+              ),
+              Text(
+                card.isAlive ? "HP ${card.health}/${card.currentCp}" : "CAN TÜKENDİ",
+                style: const TextStyle(color: Colors.white60, fontSize: 7, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ],
       ),
     );

@@ -529,15 +529,19 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
 
     // Soakers (tank emici takım arkadaşları) önce, hedef en sonda.
     for (final s in soakers) {
-      final name = allHeroes
-          .where((h) => h.id == s.heroId)
-          .map((h) => h.name)
-          .firstOrNull;
-      lines.add('${name ?? "?"} -> ${s.amount}');
+      final hero = allHeroes.where((h) => h.id == s.heroId).firstOrNull;
+      final name = hero?.name ?? '?';
+      final amount = (s.amount as num).toInt();
+      if (hero != null) {
+        final before = hero.health;
+        final after = (hero.health - amount).clamp(0, hero.currentCp);
+        lines.add('$name -> $amount (HP $before -> $after)');
+      } else {
+        lines.add('$name -> $amount');
+      }
     }
-    lines.add('${target.name} -> $finalDamage');
+    lines.add('${target.name} -> $finalDamage (HP ${target.health} -> $newHealth)');
 
-    lines.add('${target.name} HP ${target.health} -> $newHealth');
     if (killed) lines.add('${attacker.name} +2 Kut kazandı');
 
     return lines.join('\n');

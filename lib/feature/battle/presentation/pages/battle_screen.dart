@@ -5,6 +5,7 @@ import '../manager/battle_cubit.dart';
 import '../manager/battle_state.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/floating_number.dart';
+import '../widgets/hero_detail_dialog.dart';
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/entities/buff_entities.dart';
 import 'package:kam/core/util/responsive_helper.dart';
@@ -648,6 +649,11 @@ class _BattleViewState extends State<BattleView> {
   }
 
   Widget _buildTeamRow(BuildContext context, List<dynamic> team, bool isEnemy, BattleInProgress state) {
+    // Hedef seçili düşman (oyuncu takımı reaksiyonu için).
+    final HeroCardEntity? selectedEnemy = (state.selectedTargetIndex != null &&
+            state.selectedTargetIndex! < state.enemyTeam.length)
+        ? state.enemyTeam[state.selectedTargetIndex!]
+        : null;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
@@ -655,7 +661,7 @@ class _BattleViewState extends State<BattleView> {
       child: Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(team.length, (index) {
-        final card = team[index];
+        final HeroCardEntity card = team[index];
         final bool hasActed = !isEnemy && state.actedHeroIds.contains(card.id);
         final bool isSelected = isEnemy ? state.selectedTargetIndex == index : state.selectedHeroIndex == index;
         final bool isAnimating = state.currentAction?.attacker.id == card.id || state.currentAction?.target.id == card.id;
@@ -664,6 +670,13 @@ class _BattleViewState extends State<BattleView> {
         final showFloater = delta != null &&
             state.currentAction == null &&
             state.lastActionSeq != null;
+
+        // Element reaksiyonu: SADECE oyuncunun seçili kartı, seçili düşmana göre reaksiyon verir.
+        double? reaction;
+        if (!isEnemy && isSelected && card.isAlive && !isAnimating && selectedEnemy != null) {
+          reaction = card.element.getDamageMultiplier(selectedEnemy.element);
+        }
+
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Stack(
@@ -672,12 +685,16 @@ class _BattleViewState extends State<BattleView> {
             children: [
               Opacity(
                 opacity: isAnimating ? 0.0 : (card.isAlive ? (hasActed ? 0.5 : 1.0) : 0.3),
-                child: KamCardWidget(
+                child: _HeroBattleSlot(
                   card: card,
-                  isSelected: isSelected,
                   isEnemy: isEnemy,
+                  isSelected: isSelected,
+                  reactionMultiplier: reaction,
                   onTap: () => context.read<BattleCubit>().selectHero(index, isEnemy),
-                  onTozPressed: (!isEnemy && isSelected && state.isPlayerTurn) ? () => _showTozDialog(context, state) : null,
+                  onLongPress: () => HeroDetailDialog.show(context, card),
+                  onTozPressed: (!isEnemy && isSelected && state.isPlayerTurn)
+                      ? () => _showTozDialog(context, state)
+                      : null,
                   activeBuffs: state.activeBuffs,
                   allBuffs: state.allBuffs,
                 ),
@@ -803,6 +820,132 @@ class _BattleViewState extends State<BattleView> {
       },
     );
   }
-
 }
+
+/// Savaş ekranındaki bir takım yuvası: kart + stat strip + element reaksiyonu.
+/// [reactionMultiplier] null değilse karşı taraftan bir hedef seçilmiş demektir;
+///   > 1.0 → bu kart o hedefe karşı üstün → saldırgan zıplama animasyonu
+///   < 1.0 → o hedef bu karta karşı üstün → hafif geri çekilip soluklaşma
+class _HeroBattleSlot extends StatefulWidget {
+  final HeroCardEntity card;
+  final bool isEnemy;
+  final bool isSelected;
+  final double? reactionMultiplier;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final VoidCallback? onTozPressed;
+  final List<ActiveBuff> activeBuffs;
+  final List<BuffEntity> allBuffs;
+
+  const _HeroBattleSlot({
+    required this.card,
+    required this.isEnemy,
+    required this.isSelected,
+    required this.reactionMultiplier,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onTozPressed,
+    required this.activeBuffs,
+    required this.allBuffs,
+  });
+
+  @override
+  State<_HeroBattleSlot> createState() => _HeroBattleSlotState();
+}
+
+class _HeroBattleSlotState extends State<_HeroBattleSlot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _lunge;
+
+  static const _lungeDistance = 18.0;
+  // 0..1 boyunca: ilk %15 hızlı ileri atlama, kalan %85 yavaş geri dönüş.
+  static const _peakPoint = 0.15;
+
+  @override
+  void initState() {
+    super.initState();
+    _lunge = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _syncAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HeroBattleSlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.reactionMultiplier != widget.reactionMultiplier) {
+      _syncAnimation();
+    }
+  }
+
+  void _syncAnimation() {
+    final mult = widget.reactionMultiplier;
+    if (mult != null && mult > 1.0) {
+      if (!_lunge.isAnimating) _lunge.repeat();
+    } else {
+      _lunge.stop();
+      _lunge.value = 0.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _lunge.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mult = widget.reactionMultiplier;
+    final bool hasAdvantage = mult != null && mult > 1.0;
+    final bool isDisadvantaged = mult != null && mult < 1.0;
+
+    return AnimatedBuilder(
+      animation: _lunge,
+      builder: (_, __) {
+        double dy = 0;
+        double opacity = 1.0;
+        if (hasAdvantage) {
+          final t = _lunge.value;
+          double factor;
+          if (t <= _peakPoint) {
+            // Hızlı ileri: 0 → 1
+            factor = Curves.easeOutCubic.transform(t / _peakPoint);
+          } else {
+            // Yavaş geri: 1 → 0
+            final back = (t - _peakPoint) / (1 - _peakPoint);
+            factor = 1 - Curves.easeInOutCubic.transform(back);
+          }
+          // Oyuncu takımı yukarı (-Y) yönünde rakibe doğru atlar.
+          dy = -_lungeDistance * factor;
+        } else if (isDisadvantaged) {
+          // Hafif geri çekil + solgun.
+          dy = 6;
+          opacity = 0.55;
+        }
+        return Transform.translate(
+          offset: Offset(0, dy),
+          child: Opacity(
+            opacity: opacity,
+            child: GestureDetector(
+              onLongPress: widget.onLongPress,
+              child: KamCardWidget(
+                card: widget.card,
+                isSelected: widget.isSelected,
+                isEnemy: widget.isEnemy,
+                onTap: widget.onTap,
+                onTozPressed: widget.onTozPressed,
+                activeBuffs: widget.activeBuffs,
+                allBuffs: widget.allBuffs,
+                advantageMultiplier: mult,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 
