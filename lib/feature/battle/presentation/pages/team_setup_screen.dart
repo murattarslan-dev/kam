@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/usecases/fetch_user_heroes_usecase.dart';
 import '../widgets/card_widget.dart';
+import '../widgets/hero_detail_dialog.dart';
 import 'package:kam/core/auth/auth_service.dart';
 import 'package:kam/core/di/injection.dart';
 import 'package:kam/core/util/responsive_helper.dart';
@@ -343,7 +344,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
           ),
           const SizedBox(height: 2),
           Text(
-            'Kahraman seç → yuvaya ekle  ·  Sürükle → sırala  ·  Kart tıkla → çıkar',
+            'Tıkla → ekle/çıkar  ·  Sürükle → sırala  ·  ℹ️ veya uzun bas → detay',
             style: TextStyle(color: Colors.white38, fontSize: context.labelFont - 1),
           ),
         ],
@@ -423,7 +424,13 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
           ),
           child: hero != null
               ? _buildFilledSlot(index, hero, cardWidth)
-              : _buildEmptySlot(index, cardWidth),
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildEmptySlot(index, cardWidth),
+                    const SizedBox(height: 22), // stats strip ile hizalama
+                  ],
+                ),
         );
       },
     );
@@ -446,42 +453,124 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
         ),
       ),
       childWhenDragging: _buildEmptySlot(index, cardWidth, isDragging: true),
-      child: Stack(
-        clipBehavior: Clip.none,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          KamCardWidget(
-            card: hero,
-            isSelected: false,
-            isEnemy: false,
-            onTap: () => _removeFromSlot(index),
-            overrideWidth: cardWidth,
-          ),
-          Positioned(
-            top: 14,
-            right: 2,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => _removeFromSlot(index),
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: Colors.red.shade700,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black54,
-                        blurRadius: 4,
-                        offset: const Offset(0, 2))
-                  ],
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              GestureDetector(
+                onLongPress: () => HeroDetailDialog.show(context, hero),
+                child: KamCardWidget(
+                  card: hero,
+                  isSelected: false,
+                  isEnemy: false,
+                  onTap: () => _removeFromSlot(index),
+                  overrideWidth: cardWidth,
                 ),
-                child:
-                    const Icon(Icons.close, size: 11, color: Colors.white),
               ),
-            ),
+              Positioned(
+                top: 14,
+                right: 2,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _removeFromSlot(index),
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade700,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black54,
+                            blurRadius: 4,
+                            offset: const Offset(0, 2))
+                      ],
+                    ),
+                    child:
+                        const Icon(Icons.close, size: 11, color: Colors.white),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 14,
+                left: 6,
+                child: _infoButton(hero),
+              ),
+            ],
           ),
+          _buildStatsStrip(hero, cardWidth),
         ],
       ),
+    );
+  }
+
+  Widget _infoButton(HeroCardEntity hero) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => HeroDetailDialog.show(context, hero),
+      child: Container(
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.6),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.tealAccent.withValues(alpha: 0.7)),
+        ),
+        child: const Icon(Icons.info_outline,
+            size: 12, color: Colors.tealAccent),
+      ),
+    );
+  }
+
+  /// Kartın altında ATK/DEF/CP/Lv kompakt göstergesi + XP barı.
+  Widget _buildStatsStrip(HeroCardEntity hero, double cardWidth) {
+    return SizedBox(
+      width: cardWidth + 8,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _miniStat(
+                    Icons.flash_on, '${hero.currentAttackPower}', Colors.orangeAccent),
+                _miniStat(
+                    Icons.security, '${hero.currentDefensePower}', Colors.blueAccent),
+                _miniStat(
+                    Icons.favorite, '${hero.currentCp}', Colors.redAccent),
+                _miniStat(Icons.star, '${hero.level}', Colors.purpleAccent),
+              ],
+            ),
+            const SizedBox(height: 3),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: hero.xpProgress,
+                minHeight: 2,
+                backgroundColor: Colors.white12,
+                color: Colors.purpleAccent,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _miniStat(IconData icon, String value, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 9, color: color),
+        const SizedBox(width: 1),
+        Text(value,
+            style: TextStyle(
+                color: color, fontSize: 9, fontWeight: FontWeight.bold)),
+      ],
     );
   }
 
@@ -582,7 +671,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
         crossAxisCount: context.isSmallPhone
             ? 2
             : context.responsive<int>(3, tablet: 4, desktop: 5),
-        childAspectRatio: 1 / 1.75, // kart oranı (margin dahil)
+        childAspectRatio: 1 / 1.95, // kart + stat strip için pay
         crossAxisSpacing: 0,
         mainAxisSpacing: 0,
       ),
@@ -594,33 +683,48 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
           builder: (ctx, constraints) {
             // Hücre genişliğinden kart iç marjını çıkar
             final w = (constraints.maxWidth - 8).clamp(60.0, 200.0);
-            return Stack(
+            return Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                KamCardWidget(
-                  card: hero,
-                  isSelected: false,
-                  isEnemy: false,
-                  onTap: blocked ? () {} : () => _tapAvailableHero(hero),
-                  overrideWidth: w,
-                ),
-                if (blocked)
-                  Positioned.fill(
-                    child: Container(
-                      margin: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Center(
-                        child: Text('DOLU',
-                            style: TextStyle(
-                                color: Colors.white54,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1)),
+                Stack(
+                  children: [
+                    GestureDetector(
+                      onLongPress: () =>
+                          HeroDetailDialog.show(context, hero),
+                      child: KamCardWidget(
+                        card: hero,
+                        isSelected: false,
+                        isEnemy: false,
+                        onTap: blocked ? () {} : () => _tapAvailableHero(hero),
+                        overrideWidth: w,
                       ),
                     ),
-                  ),
+                    Positioned(
+                      top: 14,
+                      left: 10,
+                      child: _infoButton(hero),
+                    ),
+                    if (blocked)
+                      Positioned.fill(
+                        child: Container(
+                          margin: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Center(
+                            child: Text('DOLU',
+                                style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1)),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                _buildStatsStrip(hero, w),
               ],
             );
           },
