@@ -24,7 +24,11 @@ class SwapHeroUseCase {
     final updatedBench = List<HeroCardEntity>.from(state.benchHeroes);
     updatedBench[benchIndex] = fieldHero;
 
-    final log = "${fieldHero.name} sahadan çekildi, ${benchHero.name} sahaya girdi!";
+    final actor = state.playerName ?? 'Sen';
+    final log =
+        "[$actor] DEĞİŞTİR\n"
+        "${fieldHero.name} (HP ${fieldHero.health}/${fieldHero.currentCp}) sahadan çekildi\n"
+        "${benchHero.name} (HP ${benchHero.health}/${benchHero.currentCp} · ATK ${benchHero.currentAttackPower} · DEF ${benchHero.currentDefensePower}) sahaya girdi";
     final updatedLogs = List<String>.from(state.battleLogs)..insert(0, log);
 
     final stateAfterSwap = state.copyWith(

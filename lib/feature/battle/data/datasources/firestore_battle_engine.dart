@@ -516,44 +516,28 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     required int newHealth,
     required bool killed,
   }) {
-    String fmtBonus(int v) {
-      if (v == 0) return '';
-      return v > 0 ? ' +$v(buff)' : ' $v(debuff)';
-    }
-
-    String elemArrow() {
-      if (elemMult > 1.0) return ' ↑${elemMult.toStringAsFixed(1)}× üstün';
-      if (elemMult < 1.0) return ' ↓${elemMult.toStringAsFixed(1)}× zayıf';
-      return ' =${elemMult.toStringAsFixed(1)}× nötr';
-    }
-
-    final atkPart =
-        'Atak ${attacker.attackPower}${fmtBonus(attacker.bonusAttack)} '
-        '× element${elemArrow()} = $rawDamage';
-    final defPart =
-        'Savunma ${target.defensePower}${fmtBonus(target.bonusDefense)} '
-        '→ Net $preSoakDamage hasar';
+    final atkValue = attacker.currentAttackPower;
+    final defValue = target.currentDefensePower;
+    final elemStr = elemMult.toStringAsFixed(2);
 
     final lines = <String>[
-      '[$actorPlayerName] ${attacker.name} → ${target.name}',
-      atkPart,
-      defPart,
+      '[$actorPlayerName] ${attacker.name} -> ${target.name}',
+      'Atak: $atkValue x $elemStr = $rawDamage',
+      'Hasar: $rawDamage - $defValue = $preSoakDamage',
+      'hasar dağılımı;',
     ];
 
-    if (soakers.isNotEmpty) {
-      final shared = soakers
-          .map((s) {
-            final name = allHeroes
-                .where((h) => h.id == s.heroId)
-                .map((h) => h.name)
-                .firstOrNull;
-            return '${name ?? "?"}: ${s.amount}';
-          })
-          .join(', ');
-      lines.add('Tank emdi: $shared → ${target.name} alan hasar: $finalDamage');
+    // Soakers (tank emici takım arkadaşları) önce, hedef en sonda.
+    for (final s in soakers) {
+      final name = allHeroes
+          .where((h) => h.id == s.heroId)
+          .map((h) => h.name)
+          .firstOrNull;
+      lines.add('${name ?? "?"} -> ${s.amount}');
     }
+    lines.add('${target.name} -> $finalDamage');
 
-    lines.add('${target.name} HP ${target.health} → $newHealth');
+    lines.add('${target.name} HP ${target.health} -> $newHealth');
     if (killed) lines.add('${attacker.name} +2 Kut kazandı');
 
     return lines.join('\n');

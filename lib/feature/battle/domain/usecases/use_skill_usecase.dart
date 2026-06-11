@@ -30,13 +30,19 @@ class UseSkillUseCase {
     teamAfterCost[heroIndex] = heroAfterCost;
     BattleInProgress state = currentState.copyWith(playerTeam: teamAfterCost);
 
-    String logMsg;
+    final actor = currentState.playerName ?? 'Sen';
+    final header =
+        "[$actor] TÖZ · ${hero.name} → ${skill.name} (-${skill.cost} Kut, kalan ${heroAfterCost.kut})";
+    String detail;
 
     // Yeni yol: skill önceden tanımlı bir buff'ı tetikliyorsa, [SkillType]
     // mantığını atla ve buff'ı doğrudan uygula. Hedef ve süre buff'tan gelir.
     if (skill.triggersBuffId != null && skill.triggersBuffId!.isNotEmpty) {
       state = _applyTriggeredBuff(state, heroAfterCost, skill.triggersBuffId!);
-      logMsg = "${hero.name}, ${skill.name} kullandı!";
+      final buff = state.allBuffs.where((b) => b.id == skill.triggersBuffId).firstOrNull;
+      detail = buff != null
+          ? "${buff.name}: ${buff.description}"
+          : skill.description;
     } else {
       switch (skill.type) {
         case SkillType.heal:
@@ -46,18 +52,20 @@ class UseSkillUseCase {
           final updatedTeam = List<HeroCardEntity>.from(state.playerTeam);
           updatedTeam[heroIndex] = healed;
           state = state.copyWith(playerTeam: updatedTeam);
-          logMsg = "${hero.name}, ${skill.name} kullandı! ${skill.value} Can yeniledi.";
+          detail = "+${skill.value} HP iyileşme · ${hero.name} HP ${hero.health} → ${healed.health}/${healed.currentCp}";
           break;
         case SkillType.attackBuff:
           state = _applySkillStatBuff(state, heroAfterCost, skill, StatType.attack);
-          logMsg = "${hero.name}, ${skill.name} kullandı! Saldırı gücü ${skill.value} arttı.";
+          detail = "Saldırı +${skill.value} (savaş sonuna kadar)";
           break;
         case SkillType.defenseBuff:
           state = _applySkillStatBuff(state, heroAfterCost, skill, StatType.defense);
-          logMsg = "${hero.name}, ${skill.name} kullandı! Savunma gücü ${skill.value} arttı.";
+          detail = "Savunma +${skill.value} (savaş sonuna kadar)";
           break;
       }
     }
+
+    final logMsg = "$header\n$detail";
 
     final updatedUsedSkillIds = List<String>.from(state.usedSkillIds)..add(skill.id);
     final updatedLogs = List<String>.from(state.battleLogs)..insert(0, logMsg);
