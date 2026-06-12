@@ -9,6 +9,12 @@ class EnumLabels {
     BuffType.dot: 'Tur sonu hasar (DoT)',
     BuffType.hot: 'Tur sonu iyileşme (HoT)',
     BuffType.damageSoak: 'Hasar emme (% takım arkadaşı)',
+    BuffType.arenaImmunity: 'Arena element muafiyeti',
+  };
+
+  static const valueMode = <ValueMode, String>{
+    ValueMode.absolute: 'Mutlak',
+    ValueMode.percent: 'Yüzde (%)',
   };
 
   static const statType = <StatType, String>{
@@ -67,12 +73,6 @@ class EnumLabels {
     HeroRole.support: 'Destek',
     HeroRole.mage: 'Büyücü/Lider',
     HeroRole.tank: 'Tank/Savunma',
-  };
-
-  static const skillType = <SkillType, String>{
-    SkillType.heal: 'İyileştirme',
-    SkillType.attackBuff: 'Saldırı arttır',
-    SkillType.defenseBuff: 'Savunma arttır',
   };
 
   /// `name — açıklama` formatında etiket üretir.

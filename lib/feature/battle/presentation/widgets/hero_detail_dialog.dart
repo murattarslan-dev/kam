@@ -1,17 +1,27 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/hero_entities.dart';
+import '../../domain/entities/buff_entities.dart';
 
 /// Kahramanın tüm detaylarını gösteren tam ekran modal.
 /// Stats, açıklama, yetenekler (Töz), element matchup tablosu.
 class HeroDetailDialog extends StatelessWidget {
   final HeroCardEntity hero;
-  const HeroDetailDialog({super.key, required this.hero});
+  final List<BuffEntity> allBuffs;
+  const HeroDetailDialog({
+    super.key,
+    required this.hero,
+    this.allBuffs = const [],
+  });
 
-  static Future<void> show(BuildContext context, HeroCardEntity hero) {
+  static Future<void> show(
+    BuildContext context,
+    HeroCardEntity hero, {
+    List<BuffEntity> allBuffs = const [],
+  }) {
     return showDialog<void>(
       context: context,
       barrierColor: Colors.black87,
-      builder: (_) => HeroDetailDialog(hero: hero),
+      builder: (_) => HeroDetailDialog(hero: hero, allBuffs: allBuffs),
     );
   }
 
@@ -48,13 +58,13 @@ class HeroDetailDialog extends StatelessWidget {
                   ],
                   _sectionTitle('YETENEKLER (TÖZ)'),
                   const SizedBox(height: 6),
-                  if (hero.skillCards.isEmpty)
+                  if (hero.tozler.isEmpty)
                     const Text(
                       'Bu kahramanın yeteneği yok.',
                       style: TextStyle(color: Colors.white38, fontSize: 12),
                     )
                   else
-                    ...hero.skillCards.map(_buildSkillCard),
+                    ...hero.tozler.map(_buildTozCard),
                   const SizedBox(height: 16),
                   _sectionTitle('ELEMENT AVANTAJLARI'),
                   const SizedBox(height: 6),
@@ -234,8 +244,13 @@ class HeroDetailDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildSkillCard(SkillEntity skill) {
-    final (icon, color) = _skillVisual(skill.type);
+  Widget _buildTozCard(String buffId) {
+    final buff = allBuffs.where((b) => b.id == buffId).firstOrNull;
+    final name = buff?.name ?? buffId;
+    final description = buff?.description ?? '';
+    final cost = buff?.cost ?? 0;
+    final (icon, color) = _buffVisual(buff);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
@@ -260,65 +275,58 @@ class HeroDetailDialog extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  skill.name,
+                  name,
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.bold),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.lightBlueAccent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                  border:
-                      Border.all(color: Colors.lightBlueAccent.withValues(alpha: 0.4)),
+              if (buff?.isManual ?? false)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.lightBlueAccent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: Colors.lightBlueAccent.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.bolt,
+                          color: Colors.lightBlueAccent, size: 11),
+                      const SizedBox(width: 2),
+                      Text('$cost',
+                          style: const TextStyle(
+                              color: Colors.lightBlueAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.bolt,
-                        color: Colors.lightBlueAccent, size: 11),
-                    const SizedBox(width: 2),
-                    Text('${skill.cost}',
-                        style: const TextStyle(
-                            color: Colors.lightBlueAccent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
             ],
           ),
-          if (skill.description.isNotEmpty) ...[
+          if (description.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(skill.description,
+            Text(description,
                 style: const TextStyle(
                     color: Colors.white70, fontSize: 11, height: 1.4)),
           ],
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Row(
-              children: [
-                _chip('${_skillTypeLabel(skill.type)} · ${skill.value}', color),
-                if (skill.prerequisite != null) ...[
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      skill.prerequisite!.getDescription(),
-                      style: const TextStyle(
-                          color: Colors.amberAccent, fontSize: 10),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ],
+          if (buff != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: _chip(_buffSummary(buff), color),
             ),
-          ),
         ],
       ),
     );
+  }
+
+  String _buffSummary(BuffEntity b) {
+    final suffix = b.valueMode == ValueMode.percent ? '%' : '';
+    return '${b.type.name} · ${b.value}$suffix';
   }
 
   Widget _chip(String text, Color color) {
@@ -401,19 +409,18 @@ class HeroDetailDialog extends StatelessWidget {
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
-  (IconData, Color) _skillVisual(SkillType type) {
-    return switch (type) {
-      SkillType.heal => (Icons.healing, Colors.greenAccent),
-      SkillType.attackBuff => (Icons.flash_on, Colors.orangeAccent),
-      SkillType.defenseBuff => (Icons.shield, Colors.blueAccent),
+  (IconData, Color) _buffVisual(BuffEntity? buff) {
+    if (buff == null) return (Icons.help_outline, Colors.white54);
+    return switch (buff.type) {
+      BuffType.hot => (Icons.healing, Colors.greenAccent),
+      BuffType.dot => (Icons.local_fire_department, Colors.redAccent),
+      BuffType.damageSoak => (Icons.shield, Colors.blueAccent),
+      BuffType.arenaImmunity => (Icons.public, Colors.purpleAccent),
+      BuffType.statChange => buff.statType == StatType.defense
+          ? (Icons.shield_outlined, Colors.blueAccent)
+          : (Icons.flash_on, Colors.orangeAccent),
     };
   }
-
-  String _skillTypeLabel(SkillType type) => switch (type) {
-        SkillType.heal => 'İyileştirme',
-        SkillType.attackBuff => 'Saldırı Artışı',
-        SkillType.defenseBuff => 'Savunma Artışı',
-      };
 
   IconData _roleIcon(HeroRole role) => switch (role) {
         HeroRole.warrior => Icons.rocket_launch,

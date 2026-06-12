@@ -76,140 +76,6 @@ enum HeroRole {
   }
 }
 
-/// Töz Type defines what kind of effect the skill card will have.
-enum SkillType {
-  heal,
-  attackBuff,
-  defenseBuff;
-
-  static SkillType fromString(String value) {
-    return SkillType.values.firstWhere(
-      (e) => e.name == value,
-      orElse: () => SkillType.attackBuff,
-    );
-  }
-}
-
-/// PrerequisiteTarget defines who to check for elemental requirements.
-enum PrerequisiteTarget {
-  teammate,
-  opponent;
-
-  static PrerequisiteTarget fromString(String value) {
-    return PrerequisiteTarget.values.firstWhere(
-      (e) => e.name == value,
-      orElse: () => PrerequisiteTarget.teammate,
-    );
-  }
-}
-
-/// SkillPrerequisite represents the elemental and role requirements for a skill.
-@immutable
-class SkillPrerequisite {
-  final PrerequisiteTarget target;
-  final List<HeroElement> requiredElements;
-  final List<HeroRole> requiredRoles; // empty = any role
-  final int minCount;
-
-  const SkillPrerequisite({
-    required this.target,
-    required this.requiredElements,
-    this.requiredRoles = const [],
-    this.minCount = 1,
-  });
-
-  String getDescription() {
-    final parts = <String>[];
-    if (requiredElements.isNotEmpty) {
-      parts.add(requiredElements.map((e) => e.label).join(", "));
-    }
-    if (requiredRoles.isNotEmpty) {
-      parts.add(requiredRoles.map((r) => r.label).join(", "));
-    }
-    final targetName = target == PrerequisiteTarget.teammate ? "Takım Arkadaşı" : "Rakip";
-    return "Gereksinim: ${parts.join(' / ')} ($targetName)";
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'target': target.name,
-      'requiredElements': requiredElements.map((e) => e.name).toList(),
-      'requiredRoles': requiredRoles.map((r) => r.name).toList(),
-      'minCount': minCount,
-    };
-  }
-
-  factory SkillPrerequisite.fromMap(Map<String, dynamic> map) {
-    return SkillPrerequisite(
-      target: PrerequisiteTarget.fromString(map['target'] as String),
-      requiredElements: (map['requiredElements'] as List<dynamic>)
-          .map((e) => HeroElement.fromString(e as String))
-          .toList(),
-      requiredRoles: (map['requiredRoles'] as List<dynamic>? ?? [])
-          .map((r) => HeroRole.fromString(r as String))
-          .toList(),
-      minCount: map['minCount'] as int,
-    );
-  }
-}
-
-/// SkillEntity represents a skill card (Töz) in the game.
-@immutable
-class SkillEntity {
-  final String id;
-  final String name;
-  final String description;
-  final int cost; // Required Kut to use
-  final SkillType type;
-  final int value; // Heal amount, Attack Buff amount, etc.
-  final SkillPrerequisite? prerequisite;
-
-  /// Eğer doluysa, skill kullanıldığında [SkillType] mantığı yerine
-  /// `buffs/{triggersBuffId}` dokümanı yüklenip [HandleBuffsUseCase.applyBuff]
-  /// üzerinden uygulanır. Hedef ve süre buff'ın kendi `targetType` /
-  /// `duration` alanlarından gelir.
-  final String? triggersBuffId;
-
-  const SkillEntity({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.cost,
-    required this.type,
-    required this.value,
-    this.prerequisite,
-    this.triggersBuffId,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'cost': cost,
-      'type': type.name,
-      'value': value,
-      'prerequisite': prerequisite?.toMap(),
-      'triggersBuffId': triggersBuffId,
-    };
-  }
-
-  factory SkillEntity.fromMap(Map<String, dynamic> map) {
-    return SkillEntity(
-      id: map['id'] as String,
-      name: map['name'] as String,
-      description: map['description'] as String,
-      cost: map['cost'] as int,
-      type: SkillType.fromString(map['type'] as String),
-      value: map['value'] as int,
-      prerequisite: map['prerequisite'] != null
-          ? SkillPrerequisite.fromMap(map['prerequisite'] as Map<String, dynamic>)
-          : null,
-      triggersBuffId: map['triggersBuffId'] as String?,
-    );
-  }
-}
-
 /// HeroCardEntity represents a hero card in the "Kam: Kut'un Doğuşu" universe.
 @immutable
 class HeroCardEntity {
@@ -228,7 +94,10 @@ class HeroCardEntity {
   final int bonusAttack;
   final int bonusDefense;
   final int bonusMaxHealth;
-  final List<SkillEntity> skillCards;
+  /// Kahramanın sahip olduğu Tözler — `buffs/{id}` referansları.
+  /// Töz tetiklendiğinde buff doğrudan uygulanır; maliyet ve kullanım
+  /// koşulu buff'ın kendisinden okunur.
+  final List<String> tozler;
   /// users/{uid}/heroes/{userHeroDocId} — XP güncellemesi için saklanır.
   /// Global heroes koleksiyonundan yüklenen kahramanlarda boş kalır.
   final String userHeroDocId;
@@ -249,7 +118,7 @@ class HeroCardEntity {
     this.bonusAttack = 0,
     this.bonusDefense = 0,
     this.bonusMaxHealth = 0,
-    this.skillCards = const [],
+    this.tozler = const [],
     this.userHeroDocId = '',
   });
 
@@ -318,7 +187,7 @@ double get xpProgress {
     int? bonusAttack,
     int? bonusDefense,
     int? bonusMaxHealth,
-    List<SkillEntity>? skillCards,
+    List<String>? tozler,
   }) {
     return HeroCardEntity(
       id: id,
@@ -336,7 +205,7 @@ double get xpProgress {
       bonusAttack: bonusAttack ?? this.bonusAttack,
       bonusDefense: bonusDefense ?? this.bonusDefense,
       bonusMaxHealth: bonusMaxHealth ?? this.bonusMaxHealth,
-      skillCards: skillCards ?? this.skillCards,
+      tozler: tozler ?? this.tozler,
       userHeroDocId: userHeroDocId,
     );
   }
@@ -352,10 +221,11 @@ double get xpProgress {
       'atk': attackPower,
       'def': defensePower,
       'imageUrl': imageUrl,
+      'tozler': tozler,
     };
   }
 
-  factory HeroCardEntity.fromMap(Map<String, dynamic> map, {List<SkillEntity> skills = const []}) {
+  factory HeroCardEntity.fromMap(Map<String, dynamic> map) {
     final xp = map['xp'] as int? ?? Random().nextInt(10000);
     final hp = map['hp'] as int? ?? 100; // Yeni yapı: hp
 
@@ -382,7 +252,9 @@ double get xpProgress {
       kut: 0,
       bonusAttack: 0,
       bonusDefense: 0,
-      skillCards: skills,
+      tozler: ((map['tozler'] as List<dynamic>?) ?? const [])
+          .map((e) => e.toString())
+          .toList(),
       userHeroDocId: map['userHeroDocId'] as String? ?? '',
     );
   }

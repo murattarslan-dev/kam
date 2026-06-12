@@ -23,7 +23,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
   final FirebaseFirestore _fs;
   final BattleRepository _repo;
   final HandleBuffsUseCase _buffs;
-  final UseSkillUseCase _useSkill;
+  final UseTozUseCase _useSkill;
   final SwapHeroUseCase _swap;
   final BotAi _bot;
   final Random _rng = Random();
@@ -35,7 +35,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     FirebaseFirestore? firestore,
     required BattleRepository repository,
     required HandleBuffsUseCase buffs,
-    required UseSkillUseCase useSkill,
+    required UseTozUseCase useSkill,
     required SwapHeroUseCase swap,
     required BotAi bot,
   })  : _fs = firestore ?? FirebaseFirestore.instance,
@@ -69,8 +69,9 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     final pool = List<HeroCardEntity>.from(all)..shuffle(_rng);
     final enemies = pool.take(5).map((h) {
       return HeroCardEntity.fromMap(
-        h.toMap()..['xp'] = avgXp,
-        skills: h.skillCards,
+        h.toMap()
+          ..['xp'] = avgXp
+          ..['tozler'] = h.tozler,
       );
     }).toList();
     final enemyField = enemies.sublist(0, 3);
@@ -118,7 +119,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'turnOwner': 'host',
       'seq': 0,
       'actedHeroIds': const <String>[],
-      'usedSkillIds': const <String>[],
+      'usedTozIdsByHero': const <String, dynamic>{},
       'activeBuffs':
           st.activeBuffs.map(BattleDocMapper.activeBuffToDoc).toList(),
       'totalDamageDealt': const <String, dynamic>{},
@@ -164,7 +165,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'turnOwner': 'host',
       'seq': 0,
       'actedHeroIds': const <String>[],
-      'usedSkillIds': const <String>[],
+      'usedTozIdsByHero': const <String, dynamic>{},
       'activeBuffs': const <Map<String, dynamic>>[],
       'totalDamageDealt': const <String, dynamic>{},
       'totalDamageReceived': const <String, dynamic>{},
@@ -339,14 +340,16 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     final idx = state.playerTeam.indexWhere((h) => h.id == actorInstanceId);
     if (idx == -1) return;
     final hero = state.playerTeam[idx];
-    final skill = hero.skillCards.where((s) => s.id == skillId).firstOrNull;
-    if (skill == null) return;
+    if (!hero.tozler.contains(skillId)) return;
+    final buff = state.allBuffs.where((b) => b.id == skillId).firstOrNull;
+    if (buff == null) return;
 
-    final raw = _useSkill.execute(state, idx, skill);
+    final raw = _useSkill.execute(state, idx, skillId);
     if (raw is! BattleInProgress) return;
-    if (!raw.usedSkillIds.contains(skill.id) ||
-        state.usedSkillIds.contains(skill.id)) {
-      return; // skill koşulu sağlanmadıysa state değişmedi
+    final usedNow = (raw.usedTozIdsByHero[hero.id] ?? const []).contains(skillId);
+    final usedBefore = (state.usedTozIdsByHero[hero.id] ?? const []).contains(skillId);
+    if (!usedNow || usedBefore) {
+      return; // koşul sağlanmadıysa state değişmedi
     }
 
     final deltas = _diffHpDeltas(state, raw);
@@ -356,10 +359,10 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'type': 'skill',
       'actorInstanceId': hero.id,
       'actorSide': mySide,
-      'skillId': skill.id,
-      'skillName': skill.name,
+      'skillId': buff.id,
+      'skillName': buff.name,
       'deltas': deltas,
-      'message': '${hero.name} ${skill.name} kullandı',
+      'message': '${hero.name} ${buff.name} kullandı',
     };
 
     await _finalizeOrWrite(
@@ -766,7 +769,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     return {
       'currentTurn': next.currentTurn,
       'actedHeroIds': next.actedHeroIds,
-      'usedSkillIds': next.usedSkillIds,
+      'usedTozIdsByHero': next.usedTozIdsByHero,
       'activeBuffs':
           next.activeBuffs.map(BattleDocMapper.activeBuffToDoc).toList(),
       'totalDamageDealt': next.totalDamageDealt,

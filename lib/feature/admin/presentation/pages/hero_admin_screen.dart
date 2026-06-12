@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../battle/domain/entities/buff_entities.dart';
 import '../../../battle/domain/entities/hero_entities.dart';
 import '../enum_labels.dart';
 import '../widgets/admin_scaffold.dart';
-import 'admin_home_screen.dart';
 
 class HeroAdminScreen extends StatefulWidget {
   const HeroAdminScreen({super.key});
@@ -27,9 +27,29 @@ class _HeroAdminScreenState extends State<HeroAdminScreen> {
   int _def = 50;
   String _faction = '';
   String _imageUrl = '';
+  final List<String> _tozler = [];
 
   bool _saving = false;
   String? _editingId;
+
+  List<BuffEntity> _allBuffs = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBuffs();
+  }
+
+  Future<void> _loadBuffs() async {
+    final snap = await _firestore.collection('buffs').get();
+    final buffs = snap.docs.map((d) {
+      final data = Map<String, dynamic>.from(d.data());
+      data['id'] = d.id;
+      return BuffEntity.fromMap(data);
+    }).toList();
+    buffs.sort((a, b) => a.name.compareTo(b.name));
+    if (mounted) setState(() => _allBuffs = buffs);
+  }
 
   void _resetForm() {
     setState(() {
@@ -44,6 +64,7 @@ class _HeroAdminScreenState extends State<HeroAdminScreen> {
       _def = 50;
       _faction = '';
       _imageUrl = '';
+      _tozler.clear();
     });
     _formKey.currentState?.reset();
   }
@@ -61,6 +82,10 @@ class _HeroAdminScreenState extends State<HeroAdminScreen> {
       _def = (data['def'] as num?)?.toInt() ?? 0;
       _faction = data['faction'] as String? ?? '';
       _imageUrl = data['imageUrl'] as String? ?? '';
+      _tozler
+        ..clear()
+        ..addAll(((data['tozler'] as List?) ?? const [])
+            .map((e) => e.toString()));
     });
   }
 
@@ -98,6 +123,7 @@ class _HeroAdminScreenState extends State<HeroAdminScreen> {
         'def': _def,
         'faction': _faction,
         'imageUrl': _imageUrl,
+        'tozler': List<String>.from(_tozler),
       }, SetOptions(merge: true));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -192,14 +218,8 @@ class _HeroAdminScreenState extends State<HeroAdminScreen> {
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 ),
-                if (_editingId != null) ...[
-                  TextButton.icon(
-                    onPressed: () => AdminTabBus.of(context).openSkills(heroId: _editingId),
-                    icon: const Icon(Icons.auto_awesome),
-                    label: const Text('Yetenekler'),
-                  ),
+                if (_editingId != null)
                   TextButton(onPressed: _resetForm, child: const Text('Sıfırla')),
-                ],
               ],
             ),
             const SizedBox(height: 8),
@@ -325,6 +345,13 @@ class _HeroAdminScreenState extends State<HeroAdminScreen> {
                 ],
               ),
             ),
+            AdminSection(
+              title: 'Tözler',
+              icon: Icons.auto_awesome,
+              subtitle:
+                  'Kahramanın sahip olduğu Tözler — sadece manuel tetikli buff\'lar seçilebilir. Maliyet ve kullanım koşulu buff\'ın kendisinden okunur.',
+              child: _buildTozlerEditor(),
+            ),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: _saving ? null : _save,
@@ -339,6 +366,36 @@ class _HeroAdminScreenState extends State<HeroAdminScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTozlerEditor() {
+    final manualBuffs = _allBuffs.where((b) => b.isManual).toList();
+    if (manualBuffs.isEmpty) {
+      return Text(
+        'Henüz manuel tetikli buff yok. Önce Buff\'lar sekmesinden ekleyin.',
+        style: TextStyle(color: Theme.of(context).hintColor),
+      );
+    }
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: manualBuffs.map((b) {
+        final isSel = _tozler.contains(b.id);
+        final cost = b.cost ?? 0;
+        return FilterChip(
+          label: Text('${b.name} · $cost Kut',
+              style: const TextStyle(fontSize: 12)),
+          selected: isSel,
+          onSelected: (v) => setState(() {
+            if (v) {
+              if (!_tozler.contains(b.id)) _tozler.add(b.id);
+            } else {
+              _tozler.remove(b.id);
+            }
+          }),
+        );
+      }).toList(),
     );
   }
 
@@ -411,12 +468,6 @@ class _HeroAdminScreenState extends State<HeroAdminScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            tooltip: 'Yetenekler',
-                            icon: const Icon(Icons.auto_awesome, size: 18),
-                            onPressed: () =>
-                                AdminTabBus.of(context).openSkills(heroId: doc.id),
-                          ),
                           IconButton(
                             icon: const Icon(Icons.edit, size: 18),
                             onPressed: () => _loadIntoForm(doc.id, data),

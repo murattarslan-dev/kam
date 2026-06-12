@@ -21,16 +21,7 @@ class FirebaseBattleDataSourceImpl implements BattleDataSource {
     for (var doc in snapshot.docs) {
       final heroData = doc.data() as Map<String, dynamic>;
       heroData['id'] = doc.id;
-
-      // Fetch skills from sub-collection
-      final skillsSnapshot = await doc.reference.collection('skills').get();
-      final skills = skillsSnapshot.docs.map((s) {
-        final skillData = s.data() as Map<String, dynamic>;
-        skillData['id'] = s.id;
-        return SkillEntity.fromMap(skillData);
-      }).toList();
-
-      heroes.add(HeroCardEntity.fromMap(heroData, skills: skills));
+      heroes.add(HeroCardEntity.fromMap(heroData));
     }
     return heroes;
   }
@@ -67,15 +58,7 @@ class FirebaseBattleDataSourceImpl implements BattleDataSource {
         heroData['xp'] = userXp;
         heroData['userHeroDocId'] = userHeroDoc.id; // XP güncellemesi için
 
-        // Global kahramanın yeteneklerini getir
-        final skillsSnapshot = await globalHeroDoc.reference.collection('skills').get();
-        final skills = skillsSnapshot.docs.map((s) {
-          final skillData = s.data() as Map<String, dynamic>;
-          skillData['id'] = s.id;
-          return SkillEntity.fromMap(skillData);
-        }).toList();
-
-        userHeroes.add(HeroCardEntity.fromMap(heroData, skills: skills));
+        userHeroes.add(HeroCardEntity.fromMap(heroData));
       }
       return userHeroes;
     } catch (e) {

@@ -59,7 +59,9 @@ final class BattleInProgress extends BattleState {
   final Map<String, int> turnsSinceEffect;        // Buff/Debuff süre takibi için
   
   // Yetenek Takibi
-  final List<String> usedSkillIds; // Bu savaş boyunca kullanılmış Töz kartlarının ID'leri
+  // heroId → bu savaş boyunca o kahramanın tetiklediği buff id'leri.
+  // Aynı buff farklı kahramanlarda farklı tözler olabileceği için per-hero.
+  final Map<String, List<String>> usedTozIdsByHero;
 
   // Mevcut Animasyon
   final BattleAction? currentAction; // O an oynatılan bir animasyon varsa
@@ -99,7 +101,7 @@ final class BattleInProgress extends BattleState {
     this.totalDamageReceived = const {},
     this.kills = const [],
     this.turnsSinceEffect = const {},
-    this.usedSkillIds = const [],
+    this.usedTozIdsByHero = const {},
     this.currentAction,
     this.allBuffs = const [],
     this.activeBuffs = const [],
@@ -126,7 +128,7 @@ final class BattleInProgress extends BattleState {
     Map<String, double>? totalDamageReceived,
     List<Map<String, dynamic>>? kills,
     Map<String, int>? turnsSinceEffect,
-    List<String>? usedSkillIds,
+    Map<String, List<String>>? usedTozIdsByHero,
     BattleAction? currentAction,
     List<BuffEntity>? allBuffs,
     List<ActiveBuff>? activeBuffs,
@@ -155,7 +157,7 @@ final class BattleInProgress extends BattleState {
       totalDamageReceived: totalDamageReceived ?? this.totalDamageReceived,
       kills: kills ?? this.kills,
       turnsSinceEffect: turnsSinceEffect ?? this.turnsSinceEffect,
-      usedSkillIds: usedSkillIds ?? this.usedSkillIds,
+      usedTozIdsByHero: usedTozIdsByHero ?? this.usedTozIdsByHero,
       currentAction: clearAction ? null : (currentAction ?? this.currentAction),
       allBuffs: allBuffs ?? this.allBuffs,
       activeBuffs: activeBuffs ?? this.activeBuffs,

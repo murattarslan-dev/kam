@@ -38,12 +38,12 @@ class BattleDocMapper {
         'imageUrl': h.imageUrl,
         'kut': h.kut,
         'userHeroDocId': h.userHeroDocId,
-        'skills': h.skillCards.map((s) => s.toMap()).toList(),
+        'tozler': h.tozler,
       };
 
   static HeroCardEntity heroFromDoc(Map<String, dynamic> m, {String? fallbackId}) {
-    final skills = (m['skills'] as List<dynamic>? ?? [])
-        .map((s) => SkillEntity.fromMap(Map<String, dynamic>.from(s as Map)))
+    final tozler = ((m['tozler'] as List<dynamic>?) ?? const [])
+        .map((e) => e.toString())
         .toList();
     return HeroCardEntity(
       id: m['instanceId'] as String? ?? fallbackId ?? '',
@@ -58,7 +58,7 @@ class BattleDocMapper {
       defensePower: (m['defensePower'] as num?)?.toInt() ?? 5,
       imageUrl: m['imageUrl'] as String? ?? '',
       kut: (m['kut'] as num?)?.toInt() ?? 0,
-      skillCards: skills,
+      tozler: tozler,
       userHeroDocId: m['userHeroDocId'] as String? ?? '',
     );
   }
@@ -103,7 +103,8 @@ class BattleDocMapper {
         kut: h.kut,
         bonusAttack: h.bonusAttack,
         bonusDefense: h.bonusDefense,
-        skillCards: h.skillCards,
+        bonusMaxHealth: h.bonusMaxHealth,
+        tozler: h.tozler,
         userHeroDocId: h.userHeroDocId,
       );
     });
@@ -113,6 +114,17 @@ class BattleDocMapper {
 
   static Map<String, dynamic> activeBuffToDoc(ActiveBuff b) => b.toMap();
   static ActiveBuff activeBuffFromDoc(Map<String, dynamic> m) => ActiveBuff.fromMap(m);
+
+  static Map<String, List<String>> _readUsedTozMap(dynamic raw) {
+    if (raw is! Map) return const {};
+    final out = <String, List<String>>{};
+    raw.forEach((k, v) {
+      if (v is List) {
+        out[k.toString()] = v.map((e) => e.toString()).toList();
+      }
+    });
+    return out;
+  }
 
   // ── Perspektif: doc → BattleInProgress (mySide kendi takımı olur) ───────
 
@@ -195,9 +207,7 @@ class BattleDocMapper {
       totalDamageDealt: dealt,
       totalDamageReceived: received,
       kills: kills,
-      usedSkillIds: ((doc['usedSkillIds'] as List?) ?? const [])
-          .map((e) => e.toString())
-          .toList(),
+      usedTozIdsByHero: _readUsedTozMap(doc['usedTozIdsByHero']),
       activeBuffs: activeBuffs,
       allBuffs: allBuffs,
       currentAction: currentAction,

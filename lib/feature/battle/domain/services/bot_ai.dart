@@ -251,86 +251,23 @@ class BotAi {
     final foes = state.enemyTeam.where((e) => e.isAlive).toList();
 
     for (final hero in myAliveUnacted) {
-      for (final skill in hero.skillCards) {
-        if (state.usedSkillIds.contains(skill.id)) continue;
-        if (hero.kut < skill.cost) continue;
-        if (!_prereqMet(state, hero, skill)) continue;
+      final used = state.usedTozIdsByHero[hero.id] ?? const [];
+      for (final buffId in hero.tozler) {
+        if (used.contains(buffId)) continue;
+        final buff = state.allBuffs.where((b) => b.id == buffId).firstOrNull;
+        if (buff == null) continue;
+        if (!buff.isManual) continue;
+        if (hero.kut < (buff.cost ?? 0)) continue;
+        if (!_useReqMet(state, hero, buff)) continue;
 
-        final score = _scoreSkill(state, hero, skill, foes);
+        final score = _scoreBuffTrigger(state, hero, buff, foes);
         if (score <= 0) continue;
         if (best == null || score > best.score) {
-          best = _ScoredSkill(actorId: hero.id, skillId: skill.id, score: score);
+          best = _ScoredSkill(actorId: hero.id, skillId: buffId, score: score);
         }
       }
     }
     return best;
-  }
-
-  double _scoreSkill(
-    BattleInProgress state,
-    HeroCardEntity caster,
-    SkillEntity skill,
-    List<HeroCardEntity> foes,
-  ) {
-    // triggersBuffId varsa SkillType yerine buff mantığı çalışır.
-    if (skill.triggersBuffId != null && skill.triggersBuffId!.isNotEmpty) {
-      final buff = state.allBuffs
-          .where((b) => b.id == skill.triggersBuffId)
-          .firstOrNull;
-      if (buff == null) return 0;
-      return _scoreBuffTrigger(state, caster, buff, foes);
-    }
-
-    switch (skill.type) {
-      case SkillType.heal:
-        return _scoreHeal(state, caster, skill.value);
-      case SkillType.attackBuff:
-        return _scoreAtkBuff(state, caster, skill.value, foes);
-      case SkillType.defenseBuff:
-        return _scoreDefBuff(state, caster, skill.value, foes);
-    }
-  }
-
-  double _scoreHeal(BattleInProgress state, HeroCardEntity caster, int value) {
-    final missing = caster.currentCp - caster.health;
-    if (missing <= 0) return 0;
-    final hpPct = caster.health / caster.currentCp;
-    final effective = min(missing, value).toDouble();
-    double s = effective;
-    if (hpPct < 0.35) s += 200; // kritik HP, hemen iyileş
-    if (hpPct < 0.60) s += 60;
-    if (hpPct > 0.80) s -= 100; // dolu HP'de heal israfı
-    return s;
-  }
-
-  double _scoreAtkBuff(
-    BattleInProgress state,
-    HeroCardEntity caster,
-    int value,
-    List<HeroCardEntity> foes,
-  ) {
-    if (foes.isEmpty) return 0;
-    // Skill kalıcı (-1 süre) ve self → bot maçın geri kalanında bu artıyı kullanır.
-    // Kabaca: kaç vuruş yapabilir? Hayattaki düşman sayısı + 1, en fazla 4.
-    final hitsRemaining = min(4, foes.length + 1);
-    double s = value * hitsRemaining.toDouble();
-    // Caster zaten yaralıysa öncelik düşer (önce iyileş).
-    if (caster.health / caster.currentCp < 0.35) s -= 80;
-    return s;
-  }
-
-  double _scoreDefBuff(
-    BattleInProgress state,
-    HeroCardEntity caster,
-    int value,
-    List<HeroCardEntity> foes,
-  ) {
-    final incoming = _maxIncomingDamage(caster, foes);
-    // Def +X savunma çıkarımına eklenir; kabaca her vuruşta X hasar emer.
-    final hitsRemaining = min(4, foes.length + 1);
-    double s = value * hitsRemaining * 0.6;
-    if (incoming >= caster.health * 0.8) s += 100; // ciddi tehdit altındaysa
-    return s;
   }
 
   double _scoreBuffTrigger(
@@ -396,24 +333,41 @@ class BotAi {
     }
   }
 
-  bool _prereqMet(
-      BattleInProgress state, HeroCardEntity hero, SkillEntity skill) {
-    final p = skill.prerequisite;
-    if (p == null) return true;
-    final team = p.target == PrerequisiteTarget.teammate
-        ? state.playerTeam
-        : state.enemyTeam;
-    int count = 0;
-    for (final m in team) {
-      if (p.target == PrerequisiteTarget.teammate && m.id == hero.id) continue;
-      if (!m.isAlive) continue;
-      final el = p.requiredElements.isEmpty ||
-          p.requiredElements.contains(m.element);
-      final ro =
-          p.requiredRoles.isEmpty || p.requiredRoles.contains(m.role);
-      if (el && ro) count++;
-    }
-    return count >= p.minCount;
+  /// Buff'ın `useRequirements` listesini bot perspektifinden değerlendirir.
+  bool _useReqMet(BattleInProgress state, HeroCardEntity hero, BuffEntity buff) {
+    if (buff.useRequirements.isEmpty) return true;
+    return buff.useRequirements.every((p) {
+      switch (p.type) {
+        case BuffPrerequisiteType.none:
+          return true;
+        case BuffPrerequisiteType.heroElementIs:
+          return hero.element.name == p.value;
+        case BuffPrerequisiteType.heroRoleIs:
+          return hero.role.name == p.value;
+        case BuffPrerequisiteType.heroIdIs:
+          return hero.id == p.value;
+        case BuffPrerequisiteType.heroIdIn:
+          return p.value
+              .split(',')
+              .map((s) => s.trim())
+              .where((s) => s.isNotEmpty)
+              .contains(hero.id);
+        case BuffPrerequisiteType.hasTeammateWithElement:
+          return state.playerTeam.any((h) =>
+              h.id != hero.id && h.isAlive && h.element.name == p.value);
+        case BuffPrerequisiteType.hasTeammateWithRole:
+          return state.playerTeam.any((h) =>
+              h.id != hero.id && h.isAlive && h.role.name == p.value);
+        case BuffPrerequisiteType.hasTeammateWithId:
+          return state.playerTeam.any(
+              (h) => h.id != hero.id && h.isAlive && h.id == p.value);
+        case BuffPrerequisiteType.hasEnemyWithElement:
+          return state.enemyTeam
+              .any((h) => h.isAlive && h.element.name == p.value);
+        case BuffPrerequisiteType.hasEnemyWithRole:
+          return state.enemyTeam.any((h) => h.isAlive && h.role.name == p.value);
+      }
+    });
   }
 
   // ── Yardımcılar ───────────────────────────────────────────────────────────

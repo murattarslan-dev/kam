@@ -23,11 +23,14 @@ class _BuffAdminScreenState extends State<BuffAdminScreen> {
   BuffType _type = BuffType.statChange;
   StatType? _statType = StatType.attack;
   int _value = 10;
+  ValueMode _valueMode = ValueMode.absolute;
   int _duration = -1;
   BuffTargetType _targetType = BuffTargetType.self;
   BuffTriggerCondition _triggerCondition = BuffTriggerCondition.passive;
   double? _triggerValue;
-  final List<_PrereqDraft> _prereqs = [];
+  int _cost = 1;
+  final List<_PrereqDraft> _prereqs = [];      // targetFilter
+  final List<_PrereqDraft> _useReqs = [];      // useRequirements (manual only)
 
   bool _saving = false;
   String? _editingId;
@@ -46,7 +49,7 @@ class _BuffAdminScreenState extends State<BuffAdminScreen> {
     for (final doc in snap.docs) {
       final data = doc.data();
       data['id'] = doc.id;
-      heroes.add(HeroCardEntity.fromMap(data, skills: const []));
+      heroes.add(HeroCardEntity.fromMap(data));
     }
     if (mounted) setState(() => _heroes = heroes);
   }
@@ -60,11 +63,14 @@ class _BuffAdminScreenState extends State<BuffAdminScreen> {
       _type = BuffType.statChange;
       _statType = StatType.attack;
       _value = 10;
+      _valueMode = ValueMode.absolute;
       _duration = -1;
       _targetType = BuffTargetType.self;
       _triggerCondition = BuffTriggerCondition.passive;
       _triggerValue = null;
+      _cost = 1;
       _prereqs.clear();
+      _useReqs.clear();
     });
     _formKey.currentState?.reset();
   }
@@ -78,13 +84,18 @@ class _BuffAdminScreenState extends State<BuffAdminScreen> {
       _type = b.type;
       _statType = b.statType ?? StatType.attack;
       _value = b.value;
+      _valueMode = b.valueMode;
       _duration = b.duration;
       _targetType = b.targetType;
       _triggerCondition = b.triggerCondition;
       _triggerValue = b.triggerValue;
+      _cost = b.cost ?? 1;
       _prereqs
         ..clear()
         ..addAll(b.targetFilter.map((p) => _PrereqDraft(p.type, p.value)));
+      _useReqs
+        ..clear()
+        ..addAll(b.useRequirements.map((p) => _PrereqDraft(p.type, p.value)));
     });
   }
 
@@ -113,6 +124,7 @@ class _BuffAdminScreenState extends State<BuffAdminScreen> {
     _formKey.currentState!.save();
     final id = _editingId ?? (_id.isNotEmpty ? _id : 'buff_${_slugify(_name)}');
 
+    final isManual = _triggerCondition == BuffTriggerCondition.manual;
     final buff = BuffEntity(
       id: id,
       name: _name,
@@ -120,14 +132,22 @@ class _BuffAdminScreenState extends State<BuffAdminScreen> {
       type: _type,
       statType: _type == BuffType.statChange ? _statType : null,
       value: _value,
+      valueMode: _valueMode,
       duration: _duration,
       targetType: _targetType,
       triggerCondition: _triggerCondition,
       triggerValue: _needsThreshold(_triggerCondition) ? _triggerValue : null,
+      cost: isManual ? _cost : null,
       targetFilter: _prereqs
           .where((p) => p.type != BuffPrerequisiteType.none)
           .map((p) => BuffPrerequisite(type: p.type, value: p.value))
           .toList(),
+      useRequirements: isManual
+          ? _useReqs
+              .where((p) => p.type != BuffPrerequisiteType.none)
+              .map((p) => BuffPrerequisite(type: p.type, value: p.value))
+              .toList()
+          : const [],
     );
 
     setState(() => _saving = true);
@@ -317,6 +337,22 @@ class _BuffAdminScreenState extends State<BuffAdminScreen> {
                       onSaved: (v) => _duration = int.parse(v!),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<ValueMode>(
+                    initialValue: _valueMode,
+                    decoration: const InputDecoration(
+                      labelText: 'Değer modu',
+                      helperText:
+                          'Yüzde modunda değer, temel statın (veya canın) yüzdesi olarak uygulanır.',
+                    ),
+                    items: ValueMode.values
+                        .map((m) => DropdownMenuItem(
+                              value: m,
+                              child: Text(EnumLabels.fmt(m, EnumLabels.valueMode)),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setState(() => _valueMode = v!),
+                  ),
                 ],
               ),
             ),
@@ -366,15 +402,43 @@ class _BuffAdminScreenState extends State<BuffAdminScreen> {
                       onSaved: (v) => _triggerValue = double.parse(v!),
                     ),
                   ],
+                  if (_triggerCondition == BuffTriggerCondition.manual) ...[
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      key: ValueKey('cost-$_editingId'),
+                      initialValue: '$_cost',
+                      decoration: const InputDecoration(
+                        labelText: 'Kut maliyeti',
+                        helperText:
+                            'Manuel tetikte kahramanın ödediği Kut. >0 olmalı.',
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (v) {
+                        final n = int.tryParse(v ?? '');
+                        if (n == null || n < 0) return 'Geçerli pozitif sayı girin';
+                        return null;
+                      },
+                      onSaved: (v) => _cost = int.parse(v!),
+                    ),
+                  ],
                 ],
               ),
             ),
             AdminSection(
-              title: 'Ön koşullar',
+              title: 'Hedef filtresi (targetFilter)',
               icon: Icons.rule,
-              subtitle: 'TÜMÜ doğru olmalı. Kahramana özel buff için "Kahraman ID" kullan.',
-              child: _buildPrereqsEditor(),
+              subtitle:
+                  'Hedef seçildikten sonra uygulanacak ek filtre. TÜMÜ doğru olmalı.',
+              child: _buildPrereqsEditor(_prereqs, _addPrereq),
             ),
+            if (_triggerCondition == BuffTriggerCondition.manual)
+              AdminSection(
+                title: 'Kullanım koşulu (useRequirements)',
+                icon: Icons.lock_outline,
+                subtitle:
+                    'Töz kullanılmadan önce takım kompozisyonu üzerinden kontrol edilir.',
+                child: _buildPrereqsEditor(_useReqs, _addUseReq),
+              ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -396,26 +460,31 @@ class _BuffAdminScreenState extends State<BuffAdminScreen> {
     );
   }
 
-  Widget _buildPrereqsEditor() {
+  void _addPrereq() => setState(() => _prereqs
+      .add(_PrereqDraft(BuffPrerequisiteType.heroRoleIs, 'tank')));
+  void _addUseReq() => setState(() => _useReqs
+      .add(_PrereqDraft(BuffPrerequisiteType.heroRoleIs, 'tank')));
+
+  Widget _buildPrereqsEditor(List<_PrereqDraft> list, VoidCallback onAdd) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < _prereqs.length; i++)
+        for (var i = 0; i < list.length; i++)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: _PrereqRow(
-              key: ValueKey('prereq-$i'),
-              draft: _prereqs[i],
+              key: ValueKey('${list.hashCode}-prereq-$i'),
+              draft: list[i],
               heroes: _heroes,
               onChanged: () => setState(() {}),
-              onRemove: () => setState(() => _prereqs.removeAt(i)),
+              onRemove: () => setState(() => list.removeAt(i)),
             ),
           ),
-        if (_prereqs.isEmpty)
+        if (list.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
-              'Koşul eklenmedi — buff her zaman uygulanabilir.',
+              'Koşul eklenmedi.',
               style: TextStyle(color: Theme.of(context).hintColor),
             ),
           ),
@@ -423,9 +492,7 @@ class _BuffAdminScreenState extends State<BuffAdminScreen> {
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
-            onPressed: () => setState(() {
-              _prereqs.add(_PrereqDraft(BuffPrerequisiteType.heroRoleIs, 'tank'));
-            }),
+            onPressed: onAdd,
             icon: const Icon(Icons.add),
             label: const Text('Koşul ekle'),
           ),

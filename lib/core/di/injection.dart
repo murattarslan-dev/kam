@@ -32,7 +32,7 @@ Future<void> setupLocator() async {
   // Domain - Use Cases (engine kuralları için reuse edilir)
   sl.registerLazySingleton(() => HandleBuffsUseCase());
   sl.registerLazySingleton(() => SelectHeroUseCase());
-  sl.registerLazySingleton(() => UseSkillUseCase(sl()));
+  sl.registerLazySingleton(() => UseTozUseCase(sl()));
   sl.registerLazySingleton(() => SwapHeroUseCase(sl()));
   sl.registerLazySingleton(() => FetchUserHeroesUseCase(sl()));
 
@@ -43,7 +43,7 @@ Future<void> setupLocator() async {
   sl.registerLazySingleton<BattleEngineDataSource>(() => FirestoreBattleEngine(
         repository: sl(),
         buffs: sl<HandleBuffsUseCase>(),
-        useSkill: sl<UseSkillUseCase>(),
+        useSkill: sl<UseTozUseCase>(),
         swap: sl<SwapHeroUseCase>(),
         bot: sl<BotAi>(),
       ));
@@ -52,7 +52,7 @@ Future<void> setupLocator() async {
   sl.registerFactory(() => BattleCubit(
         sl<BattleEngineDataSource>(),
         sl<BattleRepository>(),
-        sl<UseSkillUseCase>(),
+        sl<UseTozUseCase>(),
       ));
 
   //----------------------------------------------------------------------------

@@ -19,9 +19,9 @@ import 'battle_state.dart';
 class BattleCubit extends Cubit<BattleState> {
   final BattleEngineDataSource _engine;
   final BattleRepository _repo;
-  final UseSkillUseCase _useSkillUseCase;
+  final UseTozUseCase _useTozUseCase;
 
-  BattleCubit(this._engine, this._repo, this._useSkillUseCase)
+  BattleCubit(this._engine, this._repo, this._useTozUseCase)
       : super(const BattleInitial());
 
   String _battleId = '';
@@ -291,7 +291,7 @@ class BattleCubit extends Cubit<BattleState> {
     );
   }
 
-  void useSkill(int heroIndex, SkillEntity skill) {
+  void useToz(int heroIndex, String buffId) {
     final s = state;
     if (s is! BattleInProgress) return;
     if (!s.isPlayerTurn) return;
@@ -300,14 +300,14 @@ class BattleCubit extends Cubit<BattleState> {
       battleId: _battleId,
       mySide: _mySide,
       actorInstanceId: hero.id,
-      skillId: skill.id,
+      skillId: buffId,
     );
   }
 
-  bool isSkillPrerequisiteMet(HeroCardEntity hero, SkillEntity skill) {
+  bool isTozUsable(HeroCardEntity hero, BuffEntity buff) {
     final s = state;
     if (s is! BattleInProgress) return false;
-    return _useSkillUseCase.isSkillPrerequisiteMet(s, hero, skill);
+    return _useTozUseCase.isUsable(s, hero, buff);
   }
 
   // ── Heartbeat (sadece PvP'de anlamlı) ──────────────────────────────────

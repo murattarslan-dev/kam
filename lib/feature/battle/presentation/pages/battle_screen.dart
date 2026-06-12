@@ -846,22 +846,36 @@ class _BattleViewState extends State<BattleView> {
             width: dContext.dialogWidth(),
             height: dContext.dialogHeight(max: 320),
             child: ListView.builder(
-              itemCount: hero.skillCards.length,
+              itemCount: hero.tozler.length,
               itemBuilder: (_, index) {
-                final skill = hero.skillCards[index];
-                final isUsed = state.usedSkillIds.contains(skill.id);
-                final canAfford = hero.kut >= skill.cost;
-                final isPrerequisiteMet = cubit.isSkillPrerequisiteMet(hero, skill);
-                final isAvailable = !isUsed && canAfford && isPrerequisiteMet && state.isPlayerTurn;
+                final buffId = hero.tozler[index];
+                final buff = state.allBuffs.where((b) => b.id == buffId).firstOrNull;
+                if (buff == null || !buff.isManual) {
+                  return const SizedBox.shrink();
+                }
+                final cost = buff.cost ?? 0;
+                final usedSet = state.usedTozIdsByHero[hero.id] ?? const [];
+                final isUsed = usedSet.contains(buffId);
+                final canAfford = hero.kut >= cost;
+                final isUsable = cubit.isTozUsable(hero, buff);
+                final isAvailable =
+                    !isUsed && canAfford && isUsable && state.isPlayerTurn;
 
                 return ListTile(
-                  title: Text(skill.name, style: TextStyle(color: isAvailable ? Colors.white : Colors.white24)),
-                  subtitle: Text(skill.description, style: TextStyle(color: isAvailable ? Colors.white70 : Colors.white12)),
-                  trailing: Text(skill.cost.toString(), style: const TextStyle(color: Colors.blueAccent)),
-                  onTap: isAvailable ? () {
-                    Navigator.pop(dContext);
-                    cubit.useSkill(heroIndex, skill);
-                  } : null,
+                  title: Text(buff.name,
+                      style: TextStyle(
+                          color: isAvailable ? Colors.white : Colors.white24)),
+                  subtitle: Text(buff.description,
+                      style: TextStyle(
+                          color: isAvailable ? Colors.white70 : Colors.white12)),
+                  trailing: Text('$cost',
+                      style: const TextStyle(color: Colors.blueAccent)),
+                  onTap: isAvailable
+                      ? () {
+                          Navigator.pop(dContext);
+                          cubit.useToz(heroIndex, buffId);
+                        }
+                      : null,
                 );
               },
             ),
