@@ -71,10 +71,13 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
         skills: h.skillCards,
       );
     }).toList();
+    final enemyField = enemies.sublist(0, 3);
+    final enemyBench = enemies.sublist(3, 5);
 
     final hostTeam = BattleDocMapper.assignInstanceIds(playerTeam, 'h');
     final hostBench = BattleDocMapper.assignInstanceIds(bench, 'hb');
-    final guestTeam = BattleDocMapper.assignInstanceIds(enemies, 'g');
+    final guestTeam = BattleDocMapper.assignInstanceIds(enemyField, 'g');
+    final guestBench = BattleDocMapper.assignInstanceIds(enemyBench, 'gb');
 
     final allBuffs = await _repo.fetchAllBuffs();
 
@@ -114,7 +117,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'hostTeam': BattleDocMapper.teamToDoc(st.playerTeam),
       'hostBench': BattleDocMapper.teamToDoc(st.benchHeroes),
       'guestTeam': BattleDocMapper.teamToDoc(st.enemyTeam),
-      'guestBench': const <Map<String, dynamic>>[],
+      'guestBench': BattleDocMapper.teamToDoc(guestBench),
       'lastAction': null,
       'result': null,
     });
