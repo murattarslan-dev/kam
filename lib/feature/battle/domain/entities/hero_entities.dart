@@ -255,10 +255,16 @@ class HeroCardEntity {
   bool get isAlive => health > 0;
 
   /// Current hero level derived from experience.
-  int get level => 1 + (xp ~/ 1000);
+  int get level {
+    int lvl = 1;
+    while (250 * lvl * (lvl + 1) <= xp) {
+      lvl++;
+    }
+    return lvl;
+  }
 
   /// The multiplier applied on base stats for the current level.
-  double get levelMultiplier => 1 + level * 0.1;
+  double get levelMultiplier => 1 + level * 0.2;
 
   /// Current attack value used in battle and UI display.
   int get currentAttackPower => (attackPower * levelMultiplier).round() + bonusAttack;
@@ -273,10 +279,18 @@ class HeroCardEntity {
   int get currentHealth => health;
 
   /// Remaining XP until the next level.
-  int get xpToNextLevel => level * 1000 - xp;
+  int get xpToNextLevel {
+  final nextThreshold = 250 * level * (level + 1);
+  return nextThreshold - xp;
+}
 
-  /// Progress to next level as a fraction.
-  double get xpProgress => (xp % 1000) / 1000;
+/// Progress to next level as a fraction.
+double get xpProgress {
+  final currentThreshold = 250 * (level - 1) * level;
+  final nextThreshold = 250 * level * (level + 1);
+  final span = nextThreshold - currentThreshold;
+  return span == 0 ? 0 : (xp - currentThreshold) / span;
+}
 
   /// Calculates the potential damage output against a target,
   /// considering elemental matchup and the current attack value.
@@ -336,8 +350,11 @@ class HeroCardEntity {
     final hp = map['hp'] as int? ?? 100; // Yeni yapı: hp
 
     // Mevcut seviyeye göre maksimum canı hesapla
-    final level = 1 + (xp ~/ 1000);
-    final levelMultiplier = 1 + level * 0.1;
+    int level = 1;
+    while (250 * level * (level + 1) <= xp) {
+      level++;
+    }
+    final levelMultiplier = 1 + level * 0.2;
     final maxHealth = (hp * levelMultiplier).round();
 
     return HeroCardEntity(
