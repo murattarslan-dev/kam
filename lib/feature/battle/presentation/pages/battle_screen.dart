@@ -764,17 +764,24 @@ class _BattleViewState extends State<BattleView> {
               itemCount: state.benchHeroes.length,
               itemBuilder: (_, index) {
                 final bench = state.benchHeroes[index];
+                final dead = !bench.isAlive;
                 return ListTile(
+                  enabled: !dead,
                   leading: Text(_elementEmoji(bench.element), style: const TextStyle(fontSize: 22)),
-                  title: Text(bench.name, style: const TextStyle(color: Colors.white)),
+                  title: Text(
+                    dead ? "${bench.name} (ölü)" : bench.name,
+                    style: TextStyle(color: dead ? Colors.white38 : Colors.white),
+                  ),
                   subtitle: Text(
                     "Lv ${bench.level}  ·  ATK ${bench.currentAttackPower}  ·  DEF ${bench.currentDefensePower}  ·  HP ${bench.health}/${bench.currentCp}",
-                    style: const TextStyle(color: Colors.white60, fontSize: 11),
+                    style: TextStyle(color: dead ? Colors.white24 : Colors.white60, fontSize: 11),
                   ),
-                  onTap: () {
-                    Navigator.pop(dContext);
-                    cubit.swapHero(heroIndex, index);
-                  },
+                  onTap: dead
+                      ? null
+                      : () {
+                          Navigator.pop(dContext);
+                          cubit.swapHero(heroIndex, index);
+                        },
                 );
               },
             ),

@@ -17,6 +17,7 @@ class SwapHeroUseCase {
 
     final fieldHero = state.playerTeam[fieldIndex];
     final benchHero = state.benchHeroes[benchIndex];
+    if (!benchHero.isAlive) return state;
 
     final updatedTeam = List<HeroCardEntity>.from(state.playerTeam);
     updatedTeam[fieldIndex] = benchHero;
