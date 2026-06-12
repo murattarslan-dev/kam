@@ -5,6 +5,7 @@ enum BuffType {
   dot, // Damage over time
   hot, // Heal over time
   damageSoak, // Absorbs a percent of incoming damage for teammates
+  arenaImmunity, // Sahibini arena element çarpanından muaf tutar
 }
 
 enum StatType {

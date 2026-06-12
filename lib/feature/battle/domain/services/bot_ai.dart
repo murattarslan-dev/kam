@@ -388,6 +388,11 @@ class BotAi {
       case BuffType.statChange:
         // Düşmana stat debuff (value<0) veya takıma stat buff.
         return magnitude * turns * targetCount * 0.7;
+      case BuffType.arenaImmunity:
+        // Arena etkisinin gücüne göre kabaca değer biç; bot bilmediği için
+        // ortalama bir puan veriyoruz.
+        if (targetsEnemies) return 0;
+        return targetCount * turns * 5.0;
     }
   }
 

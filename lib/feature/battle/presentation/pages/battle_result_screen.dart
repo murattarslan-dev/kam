@@ -104,6 +104,10 @@ class _BattleResultScreenState extends State<BattleResultScreen>
     final hostName = (data['hostName'] as String?) ?? 'Ev sahibi';
     final guestName = (data['guestName'] as String?) ?? 'Konuk';
     final turns = (result['turns'] as num?)?.toInt() ?? 0;
+    final arenaRaw = data['arena'];
+    final arenaName = (arenaRaw is Map) ? (arenaRaw['name'] as String?) : null;
+    final arenaThumb =
+        (arenaRaw is Map) ? (arenaRaw['thumbnailUrl'] as String?) : null;
 
     final heroStats = ((result['heroStats'] as List?) ?? const [])
         .map((e) => Map<String, dynamic>.from(e as Map))
@@ -154,6 +158,54 @@ class _BattleResultScreenState extends State<BattleResultScreen>
                 "$turns tur",
                 style: const TextStyle(color: Colors.white54, fontSize: 12),
               ),
+              if (arenaName != null && arenaName.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.lightBlueAccent.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.lightBlueAccent.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (arenaThumb != null && arenaThumb.isNotEmpty) ...[
+                        ClipOval(
+                          child: Image.network(
+                            arenaThumb,
+                            width: 16,
+                            height: 16,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                                Icons.terrain,
+                                size: 14,
+                                color: Colors.lightBlueAccent),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ] else
+                        const Padding(
+                          padding: EdgeInsets.only(right: 4),
+                          child: Icon(Icons.terrain,
+                              size: 12, color: Colors.lightBlueAccent),
+                        ),
+                      Text(
+                        "Arena: $arenaName",
+                        style: const TextStyle(
+                          color: Colors.lightBlueAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),

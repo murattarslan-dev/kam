@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/entities/buff_entities.dart';
+import '../../domain/entities/arena_entities.dart';
 import 'battle_datasource.dart';
 
 class FirebaseBattleDataSourceImpl implements BattleDataSource {
@@ -108,5 +109,24 @@ class FirebaseBattleDataSourceImpl implements BattleDataSource {
       data['id'] = doc.id;
       return BuffEntity.fromMap(data);
     }).toList();
+  }
+
+  @override
+  Future<List<ArenaEntity>> fetchAllArenas() async {
+    final snap = await _firestore.collection('arenas').get();
+    return snap.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return ArenaEntity.fromMap(data);
+    }).toList();
+  }
+
+  @override
+  Future<ArenaEntity?> fetchArenaById(String arenaId) async {
+    final doc = await _firestore.collection('arenas').doc(arenaId).get();
+    if (!doc.exists) return null;
+    final data = doc.data()!;
+    data['id'] = doc.id;
+    return ArenaEntity.fromMap(data);
   }
 }

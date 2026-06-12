@@ -43,6 +43,7 @@ class AppRouter {
             playerTeam: extra?['playerTeam'] as List<HeroCardEntity>?,
             benchHeroes: extra?['benchHeroes'] as List<HeroCardEntity>?,
             matchId: state.uri.queryParameters['match'],
+            arenaId: extra?['arenaId'] as String?,
           );
         },
       ),

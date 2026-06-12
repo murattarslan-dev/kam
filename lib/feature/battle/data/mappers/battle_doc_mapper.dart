@@ -1,5 +1,6 @@
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/entities/buff_entities.dart';
+import '../../domain/entities/arena_entities.dart';
 import '../../presentation/manager/battle_state.dart';
 
 /// Birleşik battles/{id} doc'u ↔ BattleInProgress dönüşümü.
@@ -172,6 +173,13 @@ class BattleDocMapper {
     }
     final lastSeq = (la?['seq'] as num?)?.toInt();
 
+    // Arena snapshot — doc'a yazılan elementEffects map'iyle rebuild.
+    ArenaEntity? arena;
+    final arenaRaw = doc['arena'];
+    if (arenaRaw is Map) {
+      arena = ArenaEntity.fromMap(Map<String, dynamic>.from(arenaRaw));
+    }
+
     return BattleInProgress(
       playerTeam: isHostPerspective ? hostTeam : guestTeam,
       enemyTeam: isHostPerspective ? guestTeam : hostTeam,
@@ -202,6 +210,7 @@ class BattleDocMapper {
       enemyName: isHostPerspective
           ? (doc['guestName'] as String?)
           : (doc['hostName'] as String?),
+      arena: arena,
     );
   }
 

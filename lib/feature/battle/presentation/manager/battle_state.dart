@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../../../battle/domain/entities/hero_entities.dart';
 import '../../domain/entities/buff_entities.dart';
+import '../../domain/entities/arena_entities.dart';
 
 @immutable
 sealed class BattleState {
@@ -82,6 +83,9 @@ final class BattleInProgress extends BattleState {
   final String? playerName;
   final String? enemyName;
 
+  // Seçili arena — savaş başında set edilir, skill'le değiştirilebilir.
+  final ArenaEntity? arena;
+
   const BattleInProgress({
     required this.playerTeam,
     required this.enemyTeam,
@@ -105,6 +109,7 @@ final class BattleInProgress extends BattleState {
     this.lastActionSeq,
     this.playerName,
     this.enemyName,
+    this.arena,
   });
 
   /// State'i güncellerken değişmeyen alanları korumamızı sağlayan yardımcı metod
@@ -131,6 +136,7 @@ final class BattleInProgress extends BattleState {
     int? lastActionSeq,
     String? playerName,
     String? enemyName,
+    ArenaEntity? arena,
     bool clearSelection = false,
     bool clearTarget = false,
     bool clearAction = false,
@@ -159,6 +165,7 @@ final class BattleInProgress extends BattleState {
       lastActionSeq: lastActionSeq ?? this.lastActionSeq,
       playerName: playerName ?? this.playerName,
       enemyName: enemyName ?? this.enemyName,
+      arena: arena ?? this.arena,
     );
   }
 

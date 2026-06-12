@@ -27,6 +27,7 @@ abstract class BattleEngineDataSource {
     String? hostName,
     required List<HeroCardEntity> playerTeam,
     required List<HeroCardEntity> bench,
+    String? arenaId,
   });
 
   /// PvP için yeni bir lobi oluşturur. İkinci oyuncu gelene kadar
@@ -37,6 +38,7 @@ abstract class BattleEngineDataSource {
     String? hostName,
     required List<HeroCardEntity> hostTeam,
     required List<HeroCardEntity> hostBench,
+    String? arenaId,
   });
 
   /// Davet kodundan lobi (battleId) bul. Yoksa null.

@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/entities/buff_entities.dart';
+import '../../domain/entities/arena_entities.dart';
 import '../../domain/repository/battle_repository.dart';
 import '../../domain/services/bot_ai.dart';
 import '../../domain/usecases/use_skill_usecase.dart';
@@ -54,6 +55,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     String? hostName,
     required List<HeroCardEntity> playerTeam,
     required List<HeroCardEntity> bench,
+    String? arenaId,
   }) async {
     final all = await _repo.fetchAllHeroes();
     if (all.length < 5) {
@@ -80,6 +82,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     final guestBench = BattleDocMapper.assignInstanceIds(enemyBench, 'gb');
 
     final allBuffs = await _repo.fetchAllBuffs();
+    final arena = arenaId != null ? await _repo.fetchArenaById(arenaId) : null;
 
     var st = BattleInProgress(
       playerTeam: hostTeam,
@@ -87,7 +90,13 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       benchHeroes: hostBench,
       allBuffs: allBuffs,
       isPlayerTurn: true,
-      battleLogs: const ['Savaş başladı! Düşman takımı belirlendi.'],
+      battleLogs: [
+        if (arena != null)
+          'Savaş başladı! Arena: ${arena.name}.'
+        else
+          'Savaş başladı! Düşman takımı belirlendi.'
+      ],
+      arena: arena,
     );
     st = _buffs.checkAutoBuffs(st, BuffTriggerCondition.onBattleStart);
     st = _buffs.checkPassiveBuffs(st);
@@ -95,6 +104,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     final doc = _col.doc();
     await doc.set({
       'mode': 'pve',
+      'arena': arena?.toMap(),
       'status': 'in_progress',
       'hostId': hostId,
       'guestId': 'bot',
@@ -130,13 +140,16 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     String? hostName,
     required List<HeroCardEntity> hostTeam,
     required List<HeroCardEntity> hostBench,
+    String? arenaId,
   }) async {
     final assignedTeam = BattleDocMapper.assignInstanceIds(hostTeam, 'h');
     final assignedBench = BattleDocMapper.assignInstanceIds(hostBench, 'hb');
+    final arena = arenaId != null ? await _repo.fetchArenaById(arenaId) : null;
     final doc = _col.doc();
     final code = await _generateUniqueCode();
     await doc.set({
       'mode': 'pvp',
+      'arena': arena?.toMap(),
       'status': 'lobby',
       'hostId': hostId,
       'hostName': hostName ?? 'Oyuncu',
@@ -210,6 +223,10 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     final allBuffs = await _repo.fetchAllBuffs();
     final hostTeam = BattleDocMapper.teamFromDoc(data['hostTeam']);
     final hostBench = BattleDocMapper.teamFromDoc(data['hostBench']);
+    final arenaRaw = data['arena'];
+    final arena = (arenaRaw is Map)
+        ? ArenaEntity.fromMap(Map<String, dynamic>.from(arenaRaw))
+        : null;
 
     var st = BattleInProgress(
       playerTeam: hostTeam,
@@ -217,7 +234,13 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       benchHeroes: hostBench,
       allBuffs: allBuffs,
       isPlayerTurn: true,
-      battleLogs: const ['Savaş başladı! Rakibini yen.'],
+      battleLogs: [
+        if (arena != null)
+          'Savaş başladı! Arena: ${arena.name}.'
+        else
+          'Savaş başladı! Rakibini yen.'
+      ],
+      arena: arena,
     );
     st = _buffs.checkAutoBuffs(st, BuffTriggerCondition.onBattleStart);
     st = _buffs.checkPassiveBuffs(st);
@@ -428,8 +451,28 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     String actorPlayerName,
   ) {
     final elemMult = attacker.element.getDamageMultiplier(target.element);
-    final rawDamage = (attacker.currentAttackPower * elemMult).round();
-    final defenseReduction = target.currentDefensePower;
+
+    // Arena çarpanı her iki tarafa da uygulanır: saldıranın elementi ATK'sını,
+    // hedefin elementi DEF'ini ölçekler. arenaImmunity buff'u taşıyan kahraman
+    // kendi tarafında bypass (1.0) görür. Arena yoksa her ikisi de nötr.
+    bool hasImmunity(String heroId) => state.activeBuffs.any((ab) {
+          if (ab.targetHeroId != heroId) return false;
+          final buff = state.allBuffs.where((b) => b.id == ab.buffId).firstOrNull;
+          return buff?.type == BuffType.arenaImmunity;
+        });
+    final attackerImmune = hasImmunity(attacker.id);
+    final targetImmune = hasImmunity(target.id);
+    final arenaAtkMult = (state.arena == null || attackerImmune)
+        ? 1.0
+        : state.arena!.multiplierFor(attacker.element);
+    final arenaDefMult = (state.arena == null || targetImmune)
+        ? 1.0
+        : state.arena!.multiplierFor(target.element);
+
+    final rawDamage =
+        (attacker.currentAttackPower * elemMult * arenaAtkMult).round();
+    final defenseReduction =
+        (target.currentDefensePower * arenaDefMult).round();
     final preSoakDamage = max(1, rawDamage - defenseReduction);
 
     final soak = _buffs.calculateDamageSoak(state, target.id, preSoakDamage,
@@ -472,7 +515,12 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       attacker: attacker,
       target: target,
       elemMult: elemMult,
+      arenaAtkMult: arenaAtkMult,
+      arenaDefMult: arenaDefMult,
+      attackerImmune: attackerImmune,
+      targetImmune: targetImmune,
       rawDamage: rawDamage,
+      defenseReduction: defenseReduction,
       preSoakDamage: preSoakDamage,
       finalDamage: finalDamage,
       soakers: soak.soakers,
@@ -516,7 +564,12 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     required HeroCardEntity attacker,
     required HeroCardEntity target,
     required double elemMult,
+    required double arenaAtkMult,
+    required double arenaDefMult,
+    required bool attackerImmune,
+    required bool targetImmune,
     required int rawDamage,
+    required int defenseReduction,
     required int preSoakDamage,
     required int finalDamage,
     required List soakers,
@@ -527,11 +580,23 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     final atkValue = attacker.currentAttackPower;
     final defValue = target.currentDefensePower;
     final elemStr = elemMult.toStringAsFixed(2);
+    final arenaAtkStr = arenaAtkMult.toStringAsFixed(2);
+    final arenaDefStr = arenaDefMult.toStringAsFixed(2);
+
+    final atkLine = arenaAtkMult == 1.0
+        ? 'Atak: $atkValue x $elemStr = $rawDamage'
+        : 'Atak: $atkValue x $elemStr x $arenaAtkStr (arena) = $rawDamage';
+    final defLine = arenaDefMult == 1.0
+        ? 'Hasar: $rawDamage - $defValue = $preSoakDamage'
+        : 'Hasar: $rawDamage - $defValue x $arenaDefStr (arena) '
+            '= $rawDamage - $defenseReduction = $preSoakDamage';
 
     final lines = <String>[
       '[$actorPlayerName] ${attacker.name} -> ${target.name}',
-      'Atak: $atkValue x $elemStr = $rawDamage',
-      'Hasar: $rawDamage - $defValue = $preSoakDamage',
+      if (attackerImmune) '${attacker.name} arena etkisinden muaf',
+      if (targetImmune) '${target.name} arena etkisinden muaf',
+      atkLine,
+      defLine,
       'hasar dağılımı;',
     ];
 

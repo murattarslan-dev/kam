@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'arenas_admin_screen.dart';
 import 'battles_admin_screen.dart';
 import 'buff_admin_screen.dart';
 import 'hero_admin_screen.dart';
@@ -50,6 +51,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     _AdminTab(label: 'Kahramanlar', icon: Icons.shield),
     _AdminTab(label: 'Yetenekler', icon: Icons.auto_awesome),
     _AdminTab(label: 'Kullanıcılar', icon: Icons.people),
+    _AdminTab(label: 'Arenalar', icon: Icons.terrain),
     _AdminTab(label: 'Savaşlar', icon: Icons.history),
   ];
 
@@ -107,6 +109,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             const HeroAdminScreen(),
             SkillAdminScreen(heroId: _skillsHeroId),
             const UsersAdminScreen(),
+            const ArenasAdminScreen(),
             const BattlesAdminScreen(),
           ],
         ),

@@ -16,8 +16,9 @@ class BattleScreen extends StatelessWidget {
   final List<HeroCardEntity>? playerTeam;
   final List<HeroCardEntity>? benchHeroes;
   final String? matchId;
+  final String? arenaId;
 
-  const BattleScreen({super.key, this.playerTeam, this.benchHeroes, this.matchId});
+  const BattleScreen({super.key, this.playerTeam, this.benchHeroes, this.matchId, this.arenaId});
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +34,7 @@ class BattleScreen extends StatelessWidget {
             myId: myId,
             playerTeam: playerTeam,
             benchHeroes: benchHeroes,
+            arenaId: arenaId,
           );
         }
         return cubit;
@@ -413,7 +415,29 @@ class _BattleViewState extends State<BattleView> {
       child: Scaffold(
         backgroundColor: const Color(0xFF020617),
         body: SafeArea(
-          child: BlocConsumer<BattleCubit, BattleState>(
+          child: BlocBuilder<BattleCubit, BattleState>(
+            buildWhen: (a, b) {
+              final aArena = a is BattleInProgress ? a.arena?.id : null;
+              final bArena = b is BattleInProgress ? b.arena?.id : null;
+              return aArena != bArena;
+            },
+            builder: (context, state) {
+              final bgUrl = state is BattleInProgress
+                  ? state.arena?.backgroundUrl ?? ''
+                  : '';
+              return _ArenaBackground(
+                backgroundUrl: bgUrl,
+                child: _buildBattleContent(),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBattleContent() {
+    return BlocConsumer<BattleCubit, BattleState>(
           listenWhen: (_, c) => c is BattleFinished,
           listener: (context, state) {
             if (state is BattleFinished) {
@@ -537,10 +561,7 @@ class _BattleViewState extends State<BattleView> {
             }
             return const SizedBox.shrink();
           },
-        ),
-        ),
-      ),
-    );
+        );
   }
 
   Widget _buildArena(BuildContext context, BattleInProgress state) {
@@ -677,6 +698,17 @@ class _BattleViewState extends State<BattleView> {
           reaction = card.element.getDamageMultiplier(selectedEnemy.element);
         }
 
+        // Arena çarpanı: kahramanın elementine göre. arenaImmunity bypass.
+        double? arenaMult;
+        if (state.arena != null) {
+          final immune = state.activeBuffs.any((ab) {
+            if (ab.targetHeroId != card.id) return false;
+            final b = state.allBuffs.where((x) => x.id == ab.buffId).firstOrNull;
+            return b?.type == BuffType.arenaImmunity;
+          });
+          if (!immune) arenaMult = state.arena!.multiplierFor(card.element);
+        }
+
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Stack(
@@ -690,6 +722,7 @@ class _BattleViewState extends State<BattleView> {
                   isEnemy: isEnemy,
                   isSelected: isSelected,
                   reactionMultiplier: reaction,
+                  arenaMultiplier: arenaMult,
                   onTap: () {
                     if (!isEnemy && !card.isAlive) {
                       if (state.benchHeroes.isNotEmpty && state.isPlayerTurn) {
@@ -851,6 +884,7 @@ class _HeroBattleSlot extends StatefulWidget {
   final bool isEnemy;
   final bool isSelected;
   final double? reactionMultiplier;
+  final double? arenaMultiplier;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback? onTozPressed;
@@ -862,6 +896,7 @@ class _HeroBattleSlot extends StatefulWidget {
     required this.isEnemy,
     required this.isSelected,
     required this.reactionMultiplier,
+    required this.arenaMultiplier,
     required this.onTap,
     required this.onLongPress,
     required this.onTozPressed,
@@ -959,6 +994,7 @@ class _HeroBattleSlotState extends State<_HeroBattleSlot>
                 activeBuffs: widget.activeBuffs,
                 allBuffs: widget.allBuffs,
                 advantageMultiplier: mult,
+                arenaMultiplier: widget.arenaMultiplier,
               ),
             ),
           ),
@@ -968,4 +1004,30 @@ class _HeroBattleSlotState extends State<_HeroBattleSlot>
   }
 }
 
+/// Savaş ekranının arka planı: arena background görseli + okunabilirlik için
+/// koyu overlay. Arena yoksa solid koyu renge düşer.
+class _ArenaBackground extends StatelessWidget {
+  final String backgroundUrl;
+  final Widget child;
 
+  const _ArenaBackground({required this.backgroundUrl, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (backgroundUrl.isEmpty) {
+      return Container(color: const Color(0xFF020617), child: child);
+    }
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.network(
+          backgroundUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(color: const Color(0xFF020617)),
+        ),
+        Container(color: Colors.black.withValues(alpha: 0.55)),
+        child,
+      ],
+    );
+  }
+}

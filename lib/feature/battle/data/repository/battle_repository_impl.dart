@@ -1,6 +1,7 @@
 import '../../../../core/domain/entities/user_entity.dart';
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/entities/buff_entities.dart';
+import '../../domain/entities/arena_entities.dart';
 import '../../domain/repository/battle_repository.dart';
 import '../datasources/battle_datasource.dart';
 
@@ -40,5 +41,15 @@ class BattleRepositoryImpl implements BattleRepository {
   @override
   Future<List<BuffEntity>> fetchAllBuffs() {
     return _dataSource.fetchAllBuffs();
+  }
+
+  @override
+  Future<List<ArenaEntity>> fetchAllArenas() {
+    return _dataSource.fetchAllArenas();
+  }
+
+  @override
+  Future<ArenaEntity?> fetchArenaById(String arenaId) {
+    return _dataSource.fetchArenaById(arenaId);
   }
 }

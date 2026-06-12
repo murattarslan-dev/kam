@@ -14,6 +14,9 @@ class KamCardWidget extends StatelessWidget {
   final List<ActiveBuff> activeBuffs;
   final List<BuffEntity> allBuffs;
   final double? overrideWidth;
+  /// Arena çarpanı — kahramanın elementine göre. 1.0 nötr; >1 ATK/DEF
+  /// avantajı, <1 dezavantaj. ArenaImmunity aktif olduğunda parent 1.0 geçer.
+  final double? arenaMultiplier;
 
   const KamCardWidget({
     super.key,
@@ -26,6 +29,7 @@ class KamCardWidget extends StatelessWidget {
     this.activeBuffs = const [],
     this.allBuffs = const [],
     this.overrideWidth,
+    this.arenaMultiplier,
   });
 
   @override
@@ -230,8 +234,10 @@ class KamCardWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatItem(Icons.flash_on, card.currentAttackPower.toString(), Colors.orange),
-              _buildStatItem(Icons.security, card.currentDefensePower.toString(), Colors.blue),
+              _buildStatItem(Icons.flash_on, card.currentAttackPower.toString(), Colors.orange,
+                  arenaMult: arenaMultiplier),
+              _buildStatItem(Icons.security, card.currentDefensePower.toString(), Colors.blue,
+                  arenaMult: arenaMultiplier),
               if (!isEnemy)
                 _buildStatItem(Icons.auto_awesome, "${card.kut}", Colors.lightBlueAccent),
             ],
@@ -310,13 +316,28 @@ class KamCardWidget extends StatelessWidget {
     return Colors.redAccent;
   }
 
-  Widget _buildStatItem(IconData icon, String value, Color color) {
+  Widget _buildStatItem(IconData icon, String value, Color color,
+      {double? arenaMult}) {
+    final hasArena = arenaMult != null && arenaMult != 1.0;
+    final arenaColor = hasArena
+        ? (arenaMult > 1.0 ? Colors.greenAccent : Colors.redAccent)
+        : null;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 10, color: color),
         const SizedBox(width: 2),
-        Text(value, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold)),
+        Text(value,
+            style:
+                TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold)),
+        if (hasArena) ...[
+          const SizedBox(width: 2),
+          Icon(
+            arenaMult > 1.0 ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+            size: 12,
+            color: arenaColor,
+          ),
+        ],
       ],
     );
   }
@@ -394,6 +415,8 @@ class KamCardWidget extends StatelessWidget {
             : (Icons.arrow_upward, Colors.lightGreenAccent);
       case BuffType.damageSoak:
         return (Icons.local_fire_department, Colors.redAccent);
+      case BuffType.arenaImmunity:
+        return (Icons.shield_moon, Colors.lightBlueAccent);
     }
   }
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/entities/hero_entities.dart';
+import '../../domain/entities/arena_entities.dart';
+import '../../domain/repository/battle_repository.dart';
 import '../../domain/usecases/fetch_user_heroes_usecase.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/hero_detail_dialog.dart';
@@ -26,6 +28,8 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
   bool _isLoading = true;
   String? _error;
   List<HeroCardEntity> _allHeroes = [];
+  List<ArenaEntity> _arenas = const [];
+  ArenaEntity? _selectedArena;
 
   // 5 yuva: 0-1-2 as takımı, 3-4 yedek kadro
   final List<HeroCardEntity?> _slots = List.filled(5, null);
@@ -33,21 +37,25 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
   @override
   void initState() {
     super.initState();
-    _loadHeroes();
+    _loadAll();
   }
 
-  Future<void> _loadHeroes() async {
+  Future<void> _loadAll() async {
     try {
       final heroes = await sl<FetchUserHeroesUseCase>().execute();
+      final arenas = await sl<BattleRepository>().fetchAllArenas();
+      arenas.sort((a, b) => a.name.compareTo(b.name));
       if (!mounted) return;
       setState(() {
         _allHeroes = heroes;
+        _arenas = arenas;
+        _selectedArena = arenas.isNotEmpty ? arenas.first : null;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Kahramanlar yüklenemedi: $e';
+        _error = 'Veriler yüklenemedi: $e';
         _isLoading = false;
       });
     }
@@ -98,6 +106,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     context.go('/battle', extra: {
       'playerTeam': picked.team,
       'benchHeroes': picked.bench,
+      'arenaId': _selectedArena?.id,
     });
   }
 
@@ -112,6 +121,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
         hostName: sl<AuthService>().displayName,
         hostTeam: picked.team,
         hostBench: picked.bench,
+        arenaId: _selectedArena?.id,
       );
       if (!mounted) return;
       await _showInviteDialog(lobby.inviteCode, lobby.battleId);
@@ -280,7 +290,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
                   _isLoading = true;
                   _error = null;
                 });
-                _loadHeroes();
+                _loadAll();
               },
               child: const Text('TEKRAR DENE'),
             ),
@@ -314,6 +324,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
                   cardWidth: cardW,
                 ),
                 const SizedBox(height: 10),
+                _buildArenaPicker(),
                 const Divider(color: Colors.white10, height: 1),
                 _buildAvailableSection(),
               ],
@@ -609,6 +620,185 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
       ),
     );
   }
+
+  // ── ARENA SEÇİCİ ──────────────────────────────────────────────────────────
+
+  Widget _buildArenaPicker() {
+    if (_arenas.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: context.pagePadding, vertical: 8),
+        child: const Text(
+          'Arena yok — admin panelinden eklenebilir.',
+          style: TextStyle(color: Colors.white38, fontSize: 11),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 6, 0, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+            child: Row(
+              children: [
+                const Text(
+                  'ARENA',
+                  style: TextStyle(
+                    color: Colors.lightBlueAccent,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+                Expanded(
+                  child: Divider(
+                    color: Colors.lightBlueAccent.withValues(alpha: 0.3),
+                    indent: 8,
+                  ),
+                ),
+                if (_selectedArena != null)
+                  Text(
+                    _selectedArena!.name,
+                    style: const TextStyle(
+                      color: Colors.lightBlueAccent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 96,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: context.pagePadding),
+              itemCount: _arenas.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) => _buildArenaTile(_arenas[i]),
+            ),
+          ),
+          if (_selectedArena != null)
+            Padding(
+              padding: EdgeInsets.fromLTRB(context.pagePadding, 6, context.pagePadding, 0),
+              child: _buildArenaEffectsBar(_selectedArena!),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArenaTile(ArenaEntity arena) {
+    final isSelected = _selectedArena?.id == arena.id;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedArena = arena),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        width: 140,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? Colors.lightBlueAccent
+                : Colors.white12,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(9),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (arena.thumbnailUrl.isNotEmpty)
+                Image.network(
+                  arena.thumbnailUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      Container(color: Colors.black54),
+                )
+              else
+                Container(color: Colors.black54),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.85),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 6,
+                right: 6,
+                bottom: 6,
+                child: Text(
+                  arena.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isSelected ? Colors.lightBlueAccent : Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArenaEffectsBar(ArenaEntity arena) {
+    final entries = arena.elementEffects.entries
+        .where((e) => e.value != 1.0)
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    if (entries.isEmpty) {
+      return const Text(
+        'Tüm elementler nötr',
+        style: TextStyle(color: Colors.white38, fontSize: 10),
+      );
+    }
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: entries.map((e) {
+        final isBuff = e.value > 1.0;
+        final color = isBuff ? Colors.tealAccent : Colors.redAccent;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: color.withValues(alpha: 0.4)),
+          ),
+          child: Text(
+            '${_elementEmoji(e.key)} ${e.value.toStringAsFixed(2)}x',
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  String _elementEmoji(HeroElement element) => switch (element) {
+        HeroElement.fire => '🔥',
+        HeroElement.water => '💧',
+        HeroElement.wind => '🌬️',
+        HeroElement.steppe => '🌾',
+        HeroElement.forest => '🌲',
+        HeroElement.dark => '🌑',
+      };
 
   // ── AVAILABLE HEROES ──────────────────────────────────────────────────────
 

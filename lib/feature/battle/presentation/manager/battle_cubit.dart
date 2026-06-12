@@ -48,6 +48,7 @@ class BattleCubit extends Cubit<BattleState> {
     required String myId,
     List<HeroCardEntity>? playerTeam,
     List<HeroCardEntity>? benchHeroes,
+    String? arenaId,
   }) async {
     emit(const BattleLoading(message: 'Savaş hazırlanıyor...'));
     _myId = myId;
@@ -71,6 +72,7 @@ class BattleCubit extends Cubit<BattleState> {
         hostName: sl<AuthService>().displayName,
         playerTeam: team,
         bench: bench,
+        arenaId: arenaId,
       );
       _mode = 'pve';
       _startWatch();

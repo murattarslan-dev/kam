@@ -1,6 +1,7 @@
 import '../../../../core/domain/entities/user_entity.dart';
 import '../entities/hero_entities.dart';
 import '../entities/buff_entities.dart';
+import '../entities/arena_entities.dart';
 
 abstract class BattleRepository {
   UserEntity? get currentUser;
@@ -8,4 +9,6 @@ abstract class BattleRepository {
   Future<List<HeroCardEntity>> fetchUserHeroes(String userId);
   Future<void> updateHeroXp(String userId, String userHeroDocId, int xpGain);
   Future<List<BuffEntity>> fetchAllBuffs();
+  Future<List<ArenaEntity>> fetchAllArenas();
+  Future<ArenaEntity?> fetchArenaById(String arenaId);
 }
