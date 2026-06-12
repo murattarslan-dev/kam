@@ -15,6 +15,21 @@ enum StatType {
   currentHealth,
 }
 
+/// `value` alanının yorumlanma biçimi.
+/// - absolute: doğrudan sayı (ör. +15 saldırı).
+/// - percent: temel statın yüzdesi (ör. +10 → temel saldırının %10'u).
+enum ValueMode {
+  absolute,
+  percent;
+
+  static ValueMode fromString(String? value) {
+    return ValueMode.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => ValueMode.absolute,
+    );
+  }
+}
+
 enum BuffTargetType {
   self,
   singleTeammate,
@@ -85,11 +100,24 @@ class BuffEntity {
   final BuffType type;
   final StatType? statType;
   final int value;
+  final ValueMode valueMode;
   final int duration; // -1 for entire battle, >0 for specific turns
   final BuffTargetType targetType;
+
+  /// Hedefi belirledikten sonra uygulanacak ek filtre.
+  /// Passive/auto buff'lar bunu kullanır (ör. "sadece ateş elementli olanlara").
+  final List<BuffPrerequisite> targetFilter;
+
   final BuffTriggerCondition triggerCondition;
   final double? triggerValue; // e.g., 0.5 for 50% HP
-  final List<BuffPrerequisite> prerequisites; // ALL must be true
+
+  /// Sadece [triggerCondition] == manual iken anlamlıdır.
+  /// Kahraman bu buff'ı manuel tetiklerken ödediği Kut maliyeti.
+  final int? cost;
+
+  /// Sadece [triggerCondition] == manual iken anlamlıdır.
+  /// Buff'ı manuel kullanmadan önce takım kompozisyonu üzerinden kontrol edilir.
+  final List<BuffPrerequisite> useRequirements;
 
   const BuffEntity({
     required this.id,
@@ -98,14 +126,18 @@ class BuffEntity {
     required this.type,
     this.statType,
     required this.value,
+    this.valueMode = ValueMode.absolute,
     required this.duration,
     required this.targetType,
+    this.targetFilter = const [],
     this.triggerCondition = BuffTriggerCondition.manual,
     this.triggerValue,
-    this.prerequisites = const [],
+    this.cost,
+    this.useRequirements = const [],
   });
 
   bool get isDebuff => value < 0;
+  bool get isManual => triggerCondition == BuffTriggerCondition.manual;
 
   Map<String, dynamic> toMap() {
     return {
@@ -115,15 +147,23 @@ class BuffEntity {
       'type': type.name,
       'statType': statType?.name,
       'value': value,
+      'valueMode': valueMode.name,
       'duration': duration,
       'targetType': targetType.name,
+      'targetFilter': targetFilter.map((p) => p.toMap()).toList(),
       'triggerCondition': triggerCondition.name,
       'triggerValue': triggerValue,
-      'prerequisites': prerequisites.map((p) => p.toMap()).toList(),
+      'cost': cost,
+      'useRequirements': useRequirements.map((p) => p.toMap()).toList(),
     };
   }
 
   factory BuffEntity.fromMap(Map<String, dynamic> map) {
+    // Geriye dönük: eski dokümanlarda `prerequisites` alanı targetFilter rolünü
+    // üstleniyordu. Yeni alan yoksa eskisine düş.
+    final rawTargetFilter =
+        (map['targetFilter'] ?? map['prerequisites']) as List<dynamic>? ?? const [];
+
     return BuffEntity(
       id: map['id'] as String? ?? '',
       name: map['name'] as String? ?? '',
@@ -139,17 +179,22 @@ class BuffEntity {
             )
           : null,
       value: map['value'] as int? ?? 0,
+      valueMode: ValueMode.fromString(map['valueMode'] as String?),
       duration: map['duration'] as int? ?? -1,
       targetType: BuffTargetType.values.firstWhere(
         (e) => e.name == (map['targetType'] as String? ?? ''),
         orElse: () => BuffTargetType.allTeammates,
       ),
+      targetFilter: rawTargetFilter
+          .map((p) => BuffPrerequisite.fromMap(p as Map<String, dynamic>))
+          .toList(),
       triggerCondition: BuffTriggerCondition.values.firstWhere(
         (e) => e.name == (map['triggerCondition'] as String? ?? 'manual'),
         orElse: () => BuffTriggerCondition.manual,
       ),
       triggerValue: (map['triggerValue'] as num?)?.toDouble(),
-      prerequisites: (map['prerequisites'] as List<dynamic>? ?? [])
+      cost: map['cost'] as int?,
+      useRequirements: (map['useRequirements'] as List<dynamic>? ?? const [])
           .map((p) => BuffPrerequisite.fromMap(p as Map<String, dynamic>))
           .toList(),
     );

@@ -84,7 +84,7 @@ class _BuffAdminScreenState extends State<BuffAdminScreen> {
       _triggerValue = b.triggerValue;
       _prereqs
         ..clear()
-        ..addAll(b.prerequisites.map((p) => _PrereqDraft(p.type, p.value)));
+        ..addAll(b.targetFilter.map((p) => _PrereqDraft(p.type, p.value)));
     });
   }
 
@@ -124,7 +124,7 @@ class _BuffAdminScreenState extends State<BuffAdminScreen> {
       targetType: _targetType,
       triggerCondition: _triggerCondition,
       triggerValue: _needsThreshold(_triggerCondition) ? _triggerValue : null,
-      prerequisites: _prereqs
+      targetFilter: _prereqs
           .where((p) => p.type != BuffPrerequisiteType.none)
           .map((p) => BuffPrerequisite(type: p.type, value: p.value))
           .toList(),

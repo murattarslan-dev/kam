@@ -45,11 +45,25 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
       final heroes = await sl<FetchUserHeroesUseCase>().execute();
       final arenas = await sl<BattleRepository>().fetchAllArenas();
       arenas.sort((a, b) => a.name.compareTo(b.name));
+
+      // Guest: host'un seçtiği arenayı lobi dokümanından oku ve kilitli göster.
+      ArenaEntity? initialArena = arenas.isNotEmpty ? arenas.first : null;
+      final mid = widget.inviteMatchId;
+      if (mid != null) {
+        final lobby = await sl<BattleEngineDataSource>().get(mid);
+        final hostArenaId = lobby?['arenaId'] as String?;
+        if (hostArenaId != null) {
+          final match =
+              arenas.where((a) => a.id == hostArenaId).firstOrNull;
+          if (match != null) initialArena = match;
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _allHeroes = heroes;
         _arenas = arenas;
-        _selectedArena = arenas.isNotEmpty ? arenas.first : null;
+        _selectedArena = initialArena;
         _isLoading = false;
       });
     } catch (e) {
@@ -642,15 +656,20 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
             child: Row(
               children: [
-                const Text(
-                  'ARENA',
-                  style: TextStyle(
+                Text(
+                  _isGuest ? 'ARENA (EV SAHİBİ SEÇTİ)' : 'ARENA',
+                  style: const TextStyle(
                     color: Colors.lightBlueAccent,
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 2,
                   ),
                 ),
+                if (_isGuest) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.lock_outline,
+                      size: 12, color: Colors.lightBlueAccent),
+                ],
                 Expanded(
                   child: Divider(
                     color: Colors.lightBlueAccent.withValues(alpha: 0.3),
@@ -671,12 +690,20 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
           ),
           SizedBox(
             height: 96,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(horizontal: context.pagePadding),
-              itemCount: _arenas.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) => _buildArenaTile(_arenas[i]),
+            child: Builder(
+              builder: (_) {
+                // Guest: yalnız host'un seçtiği arenayı göster, taplanmaz.
+                final list = _isGuest && _selectedArena != null
+                    ? <ArenaEntity>[_selectedArena!]
+                    : _arenas;
+                return ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: context.pagePadding),
+                  itemCount: list.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (_, i) => _buildArenaTile(list[i]),
+                );
+              },
             ),
           ),
           if (_selectedArena != null)
@@ -692,7 +719,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
   Widget _buildArenaTile(ArenaEntity arena) {
     final isSelected = _selectedArena?.id == arena.id;
     return GestureDetector(
-      onTap: () => setState(() => _selectedArena = arena),
+      onTap: _isGuest ? null : () => setState(() => _selectedArena = arena),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
         width: 140,

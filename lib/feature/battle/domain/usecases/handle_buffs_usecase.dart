@@ -71,7 +71,7 @@ class HandleBuffsUseCase {
         for (final owner in [...state.playerTeam, ...state.enemyTeam]) {
           if (!owner.isAlive) continue;
           final isPlayer = state.playerTeam.any((h) => h.id == owner.id);
-          if (!_isPrerequisiteMet(state, owner, isPlayer, buff.prerequisites)) continue;
+          if (!_isPrerequisiteMet(state, owner, isPlayer, buff.targetFilter)) continue;
           final teammates = (isPlayer ? state.playerTeam : state.enemyTeam)
               .where((h) => h.id != owner.id && h.isAlive);
           final triggered = teammates.any(
@@ -131,7 +131,7 @@ class HandleBuffsUseCase {
 
       for (final owner in ownerCandidates) {
         final ownerIsPlayer = state.playerTeam.any((h) => h.id == owner.id);
-        if (!_isPrerequisiteMet(state, owner, ownerIsPlayer, buff.prerequisites)) continue;
+        if (!_isPrerequisiteMet(state, owner, ownerIsPlayer, buff.targetFilter)) continue;
         if (_isAlreadyActive(state, buff.id, owner.id)) continue;
         state = applyBuff(state, buff.id, owner.id);
       }
@@ -187,7 +187,7 @@ class HandleBuffsUseCase {
       for (final hero in allHeroes) {
         if (!hero.isAlive) continue;
         final isPlayerTeam = newState.playerTeam.any((h) => h.id == hero.id);
-        if (_isPrerequisiteMet(newState, hero, isPlayerTeam, buff.prerequisites)) {
+        if (_isPrerequisiteMet(newState, hero, isPlayerTeam, buff.targetFilter)) {
           newState = applyBuff(newState, buff.id, hero.id);
         }
       }
@@ -343,11 +343,13 @@ class HandleBuffsUseCase {
     String logMsg = "";
 
     if (buff.type == BuffType.dot) {
-      final damage = buff.value.abs();
+      final raw = _resolveValue(buff, hero.currentCp).abs();
+      final damage = raw < 1 ? 1 : raw;
       updatedHero = hero.copyWith(health: (hero.health - damage).clamp(0, hero.currentCp));
       logMsg = "${hero.name}, ${buff.name} etkisiyle $damage hasar aldı.";
     } else if (buff.type == BuffType.hot) {
-      final heal = buff.value;
+      final raw = _resolveValue(buff, hero.currentCp);
+      final heal = raw < 1 ? 1 : raw;
       updatedHero = hero.copyWith(health: (hero.health + heal).clamp(0, hero.currentCp));
       logMsg = "${hero.name}, ${buff.name} etkisiyle $heal can yeniledi.";
     }
@@ -450,24 +452,51 @@ class HandleBuffsUseCase {
   HeroCardEntity _calculateHeroStats(HeroCardEntity hero, List<ActiveBuff> activeBuffs, List<BuffEntity> allBuffs) {
     int bonusAtk = 0;
     int bonusDef = 0;
+    int bonusMaxHp = 0;
 
     final heroBuffs = activeBuffs.where((ab) => ab.targetHeroId == hero.id);
 
     for (final activeBuff in heroBuffs) {
       final buff = allBuffs.where((b) => b.id == activeBuff.buffId).firstOrNull;
       if (buff == null) continue;
-      if (buff.type == BuffType.statChange) {
-        if (buff.statType == StatType.attack) {
-          bonusAtk += buff.value;
-        } else if (buff.statType == StatType.defense) {
-          bonusDef += buff.value;
-        }
+      if (buff.type != BuffType.statChange) continue;
+
+      switch (buff.statType) {
+        case StatType.attack:
+          bonusAtk += _resolveValue(buff, hero.baseAttackScaled);
+          break;
+        case StatType.defense:
+          bonusDef += _resolveValue(buff, hero.baseDefenseScaled);
+          break;
+        case StatType.maxHealth:
+          bonusMaxHp += _resolveValue(buff, hero.baseMaxHealthScaled);
+          break;
+        case StatType.currentHealth:
+        case null:
+          // currentHealth statChange üzerinden yürütülmez; bunun için
+          // BuffType.hot / BuffType.dot kullanılmalı.
+          break;
       }
     }
+
+    // Max HP düşerse mevcut canı yeni tavana clamp et (taşmayı engelle).
+    final newMaxHp = hero.baseMaxHealthScaled + bonusMaxHp;
+    final clampedHealth = hero.health > newMaxHp ? newMaxHp : hero.health;
 
     return hero.copyWith(
       bonusAttack: bonusAtk,
       bonusDefense: bonusDef,
+      bonusMaxHealth: bonusMaxHp,
+      health: clampedHealth,
     );
+  }
+
+  /// Buff'ın `valueMode`'una göre bonus miktarını çözer.
+  /// percent → temel statın yüzdesi, absolute → ham değer.
+  int _resolveValue(BuffEntity buff, int base) {
+    if (buff.valueMode == ValueMode.percent) {
+      return (base * buff.value / 100).round();
+    }
+    return buff.value;
   }
 }

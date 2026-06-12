@@ -227,6 +227,7 @@ class HeroCardEntity {
   final int kut;
   final int bonusAttack;
   final int bonusDefense;
+  final int bonusMaxHealth;
   final List<SkillEntity> skillCards;
   /// users/{uid}/heroes/{userHeroDocId} — XP güncellemesi için saklanır.
   /// Global heroes koleksiyonundan yüklenen kahramanlarda boş kalır.
@@ -247,6 +248,7 @@ class HeroCardEntity {
     this.kut = 0,
     this.bonusAttack = 0,
     this.bonusDefense = 0,
+    this.bonusMaxHealth = 0,
     this.skillCards = const [],
     this.userHeroDocId = '',
   });
@@ -266,14 +268,20 @@ class HeroCardEntity {
   /// The multiplier applied on base stats for the current level.
   double get levelMultiplier => 1 + level * 0.2;
 
+  /// Seviye çarpanı uygulanmış temel statlar (bonus dahil değil).
+  /// Yüzdesel buff hesabı bu değerler üzerinden yapılır.
+  int get baseAttackScaled => (attackPower * levelMultiplier).round();
+  int get baseDefenseScaled => (defensePower * levelMultiplier).round();
+  int get baseMaxHealthScaled => (cp * levelMultiplier).round();
+
   /// Current attack value used in battle and UI display.
-  int get currentAttackPower => (attackPower * levelMultiplier).round() + bonusAttack;
+  int get currentAttackPower => baseAttackScaled + bonusAttack;
 
   /// Current defense value used in battle and UI display.
-  int get currentDefensePower => (defensePower * levelMultiplier).round() + bonusDefense;
+  int get currentDefensePower => baseDefenseScaled + bonusDefense;
 
-  /// Current maximum health pool derived from CP and level.
-  int get currentCp => (cp * levelMultiplier).round();
+  /// Current maximum health pool derived from CP and level (+ bonus).
+  int get currentCp => baseMaxHealthScaled + bonusMaxHealth;
 
   /// Current health remaining during battle.
   int get currentHealth => health;
@@ -309,6 +317,7 @@ double get xpProgress {
     int? kut,
     int? bonusAttack,
     int? bonusDefense,
+    int? bonusMaxHealth,
     List<SkillEntity>? skillCards,
   }) {
     return HeroCardEntity(
@@ -326,6 +335,7 @@ double get xpProgress {
       kut: kut ?? this.kut,
       bonusAttack: bonusAttack ?? this.bonusAttack,
       bonusDefense: bonusDefense ?? this.bonusDefense,
+      bonusMaxHealth: bonusMaxHealth ?? this.bonusMaxHealth,
       skillCards: skillCards ?? this.skillCards,
       userHeroDocId: userHeroDocId,
     );
