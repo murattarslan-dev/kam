@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/auth/auth_service.dart';
 import '../../../../core/di/injection.dart';
@@ -40,6 +41,10 @@ class BattleCubit extends Cubit<BattleState> {
 
   StreamSubscription<Map<String, dynamic>?>? _sub;
   Timer? _heartbeat;
+
+  /// PvP tur süresi geri sayımı için bitiş zamanı. UI bunu dinler.
+  final ValueNotifier<DateTime?> turnDeadline = ValueNotifier<DateTime?>(null);
+  Timer? _forfeitTimer;
 
   // ── Açılış ─────────────────────────────────────────────────────────────
 
@@ -136,6 +141,8 @@ class BattleCubit extends Cubit<BattleState> {
       _drainPending();
       return;
     }
+    _syncTurnDeadline(data);
+
     if (status == 'aborted') {
       emit(const BattleError('Savaş iptal edildi.'));
       return;
@@ -310,6 +317,44 @@ class BattleCubit extends Cubit<BattleState> {
     return _useTozUseCase.isUsable(s, hero, buff);
   }
 
+  // ── Tur süresi (PvP forfeit sayacı) ────────────────────────────────────
+
+  /// Snapshot'tan turnDeadlineMs okur, ValueNotifier'ı günceller ve sıra
+  /// bizdeyse forfeit timer'ını yeniden kurar.
+  void _syncTurnDeadline(Map<String, dynamic> data) {
+    final status = data['status'] as String?;
+    final mode = data['mode'] as String?;
+    if (mode != 'pvp' || status != 'in_progress') {
+      _cancelForfeitTimer();
+      if (turnDeadline.value != null) turnDeadline.value = null;
+      return;
+    }
+    final ms = (data['turnDeadlineMs'] as num?)?.toInt();
+    if (ms == null) {
+      _cancelForfeitTimer();
+      if (turnDeadline.value != null) turnDeadline.value = null;
+      return;
+    }
+    final dl = DateTime.fromMillisecondsSinceEpoch(ms);
+    if (turnDeadline.value?.millisecondsSinceEpoch != ms) {
+      turnDeadline.value = dl;
+    }
+    _cancelForfeitTimer();
+    if (data['turnOwner'] == _mySide) {
+      final remaining = dl.difference(DateTime.now());
+      final wait = remaining.isNegative ? Duration.zero : remaining;
+      _forfeitTimer = Timer(wait, () {
+        if (isClosed) return;
+        _engine.forfeitByTimeout(battleId: _battleId, mySide: _mySide);
+      });
+    }
+  }
+
+  void _cancelForfeitTimer() {
+    _forfeitTimer?.cancel();
+    _forfeitTimer = null;
+  }
+
   // ── Heartbeat (sadece PvP'de anlamlı) ──────────────────────────────────
 
   void _ensureHeartbeat() {
@@ -327,6 +372,8 @@ class BattleCubit extends Cubit<BattleState> {
   @override
   Future<void> close() {
     _stopHeartbeat();
+    _cancelForfeitTimer();
+    turnDeadline.dispose();
     _sub?.cancel();
     return super.close();
   }

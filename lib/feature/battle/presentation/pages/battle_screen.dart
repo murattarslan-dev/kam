@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -517,9 +519,20 @@ class _BattleViewState extends State<BattleView> {
                       action: state.currentAction!,
                       onComplete: () => context.read<BattleCubit>().onAnimationComplete(),
                     ),
+                  Positioned(
+                    top: 20,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: _TurnCountdown(
+                        deadline: context.read<BattleCubit>().turnDeadline,
+                        isMyTurn: state.isPlayerTurn,
+                      ),
+                    ),
+                  ),
                   if (!state.isPlayerTurn && state.currentAction == null)
                     Positioned(
-                      top: 20,
+                      top: 60,
                       left: 0,
                       right: 0,
                       child: Center(
@@ -1014,6 +1027,88 @@ class _HeroBattleSlotState extends State<_HeroBattleSlot>
           ),
         );
       },
+    );
+  }
+}
+
+/// PvP turunda kalan süreyi gösteren, her saniye güncellenen chip.
+/// Deadline null ise hiç çizilmez (PvE veya lobi/bitiş durumları).
+class _TurnCountdown extends StatefulWidget {
+  final ValueListenable<DateTime?> deadline;
+  final bool isMyTurn;
+  const _TurnCountdown({required this.deadline, required this.isMyTurn});
+
+  @override
+  State<_TurnCountdown> createState() => _TurnCountdownState();
+}
+
+class _TurnCountdownState extends State<_TurnCountdown> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.deadline.addListener(_onChange);
+    _tick = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _onChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    widget.deadline.removeListener(_onChange);
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dl = widget.deadline.value;
+    if (dl == null) return const SizedBox.shrink();
+    final remainingMs = dl.difference(DateTime.now()).inMilliseconds;
+    final secs = remainingMs <= 0 ? 0 : (remainingMs / 1000).ceil();
+    final danger = secs <= 10;
+    final color = danger
+        ? Colors.redAccent
+        : (widget.isMyTurn ? Colors.tealAccent : Colors.amberAccent);
+    final label = widget.isMyTurn ? 'SENİN TURUN' : 'RAKİP';
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        border: Border.all(color: color.withValues(alpha: 0.7), width: 1.5),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: danger
+            ? [
+                BoxShadow(
+                  color: Colors.redAccent.withValues(alpha: 0.5),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                ),
+              ]
+            : const [],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.timer_outlined, color: color, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            '$label  ${secs}s',
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

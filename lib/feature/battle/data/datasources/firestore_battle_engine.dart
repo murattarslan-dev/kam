@@ -31,6 +31,10 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
   // Aynı battle için aynı anda iki bot job'ı çalışmasın.
   final Set<String> _activeBotJobs = {};
 
+  static const int _turnTimeoutMs = 60 * 1000;
+  int _newDeadline() =>
+      DateTime.now().millisecondsSinceEpoch + _turnTimeoutMs;
+
   FirestoreBattleEngine({
     FirebaseFirestore? firestore,
     required BattleRepository repository,
@@ -131,6 +135,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'guestBench': BattleDocMapper.teamToDoc(guestBench),
       'lastAction': null,
       'result': null,
+      'turnDeadlineMs': null,
     });
     return doc.id;
   }
@@ -176,6 +181,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'guestBench': const <Map<String, dynamic>>[],
       'lastAction': null,
       'result': null,
+      'turnDeadlineMs': null,
     });
     return PvpLobby(battleId: doc.id, inviteCode: code);
   }
@@ -259,6 +265,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'activeBuffs':
           st.activeBuffs.map(BattleDocMapper.activeBuffToDoc).toList(),
       'battleLogs': st.battleLogs.take(60).toList(),
+      'turnDeadlineMs': _newDeadline(),
     });
   }
 
@@ -429,6 +436,46 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (_) {}
+  }
+
+  @override
+  Future<void> forfeitByTimeout({
+    required String battleId,
+    required String mySide,
+  }) async {
+    final data = await get(battleId);
+    if (data == null) return;
+    if (data['status'] != 'in_progress') return;
+    if (data['mode'] != 'pvp') return;
+    if (data['turnOwner'] != mySide) return;
+
+    final allBuffs = await _repo.fetchAllBuffs();
+    final state = _buildActorState(data, mySide, allBuffs);
+    final winnerSide = mySide == 'host' ? 'guest' : 'host';
+    final seq = ((data['seq'] as num?)?.toInt() ?? 0) + 1;
+    final loserName = (mySide == 'host'
+            ? data['hostName']
+            : data['guestName']) as String? ??
+        'Oyuncu';
+    final lastAction = <String, dynamic>{
+      'seq': seq,
+      'type': 'forfeit',
+      'actorSide': mySide,
+      'message': '$loserName süreyi aştı, savaşı terk etti.',
+    };
+    final next = state.copyWith(
+      battleLogs: ['$loserName süreyi aştı, savaşı terk etti.', ...state.battleLogs],
+    );
+    await _writeFinished(
+      battleId: battleId,
+      priorDoc: data,
+      finalState: next,
+      actorSide: mySide,
+      winnerSide: winnerSide,
+      lastAction: lastAction,
+      seq: seq,
+      forfeitedSide: mySide,
+    );
   }
 
   @override
@@ -720,6 +767,9 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     patch['turnOwner'] = newTurnOwner;
     patch['lastAction'] = lastAction;
     patch['seq'] = seq;
+    if (priorDoc['mode'] == 'pvp') {
+      patch['turnDeadlineMs'] = _newDeadline();
+    }
 
     final ref = _col.doc(battleId);
     final batch = _fs.batch();
@@ -791,6 +841,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     required String winnerSide,
     required Map<String, dynamic> lastAction,
     required int seq,
+    String? forfeitedSide,
   }) async {
     final patch = _patchForState(
       priorDoc: priorDoc,
@@ -887,6 +938,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     patch['lastAction'] = lastAction;
     patch['seq'] = seq;
     patch['status'] = 'finished';
+    patch['turnDeadlineMs'] = null;
     patch['result'] = {
       'winnerSide': winnerSide,
       'isHostVictory': winnerSide == 'host',
@@ -896,6 +948,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'turns': finalState.currentTurn,
       'finishedAt': FieldValue.serverTimestamp(),
       'xpGrantedFor': const <String, bool>{},
+      if (forfeitedSide != null) 'forfeitedSide': forfeitedSide,
     };
     // Geri uyumluluk: önceki sürümler hâlâ map okumaya çalışırsa boş kalsın.
 
@@ -929,14 +982,17 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     final heroStats = ((result['heroStats'] as List?) ?? const [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
-    await _grantOwnSideXp(battleId, heroStats, mySide);
+    final forfeitedSide = result['forfeitedSide'] as String?;
+    await _grantOwnSideXp(battleId, heroStats, mySide,
+        skipGrant: forfeitedSide == mySide);
   }
 
   Future<void> _grantOwnSideXp(
     String battleId,
     List<Map<String, dynamic>> heroStats,
-    String mySide,
-  ) async {
+    String mySide, {
+    bool skipGrant = false,
+  }) async {
     final user = _repo.currentUser;
     if (user == null) return;
     final uid = user.uid;
@@ -954,6 +1010,8 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     } catch (_) {
       return;
     }
+
+    if (skipGrant) return;
 
     for (final s in heroStats) {
       if (s['side'] != mySide) continue;
