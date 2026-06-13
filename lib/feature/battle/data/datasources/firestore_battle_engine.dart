@@ -120,6 +120,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'seq': 0,
       'actedHeroIds': const <String>[],
       'usedTozIdsByHero': const <String, dynamic>{},
+      'pendingTurnBump': false,
       'activeBuffs':
           st.activeBuffs.map(BattleDocMapper.activeBuffToDoc).toList(),
       'totalDamageDealt': const <String, dynamic>{},
@@ -166,6 +167,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'seq': 0,
       'actedHeroIds': const <String>[],
       'usedTozIdsByHero': const <String, dynamic>{},
+      'pendingTurnBump': false,
       'activeBuffs': const <Map<String, dynamic>>[],
       'totalDamageDealt': const <String, dynamic>{},
       'totalDamageReceived': const <String, dynamic>{},
@@ -693,6 +695,13 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     String mySide,
     List<BuffEntity> allBuffs,
   ) {
+    // Önceki turun sonunda erteltilmiş tur sayısı artışı varsa, yeni aktörün
+    // hamleleri doğru tur numarasıyla işlensin diye burada tüketilir.
+    // Doc'taki bayrak temizleme işi `_finalizeOrWrite`'taki patch'te yapılır.
+    if (data['pendingTurnBump'] == true) {
+      final cur = (data['currentTurn'] as num?)?.toInt() ?? 1;
+      data['currentTurn'] = cur + 1;
+    }
     return BattleDocMapper.buildPerspective(
       doc: data,
       mySide: mySide,
@@ -714,6 +723,10 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     String newTurnOwner = actorSide;
 
     // Aktörün turu bittiyse, post-turn bloğunu çalıştır + sırayı çevir.
+    // currentTurn ARTIRMASI bilinçli olarak burada YAPILMIYOR: aktörün son
+    // hamlesinin log/lastAction'ı, eski tur numarasıyla görünsün diye.
+    // Artırma, yeni aktörün ilk komutu işlenirken `_buildActorState` içinde
+    // `pendingTurnBump` bayrağı tüketilerek yapılır.
     if (!current.isPlayerTurn) {
       current = _buffs.processTurnEnd(current);
       current = _buffs.checkHpTriggers(current);
@@ -724,7 +737,6 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
           .toList();
       current = current.copyWith(
         enemyTeam: updatedNewOwner,
-        currentTurn: current.currentTurn + 1,
         actedHeroIds: const [],
       );
       newTurnOwner = actorSide == 'host' ? 'guest' : 'host';
@@ -760,6 +772,10 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     patch['turnOwner'] = newTurnOwner;
     patch['lastAction'] = lastAction;
     patch['seq'] = seq;
+    // Aktörün son hamlesi turun bitişiyle aynı patch'e düşüyor: tur sayısını
+    // şimdilik artırma; yeni aktörün ilk komutunda tüketilecek bayrağı set et.
+    // Aktör turuna devam ediyorsa (örn. swap), bayrağı temizle.
+    patch['pendingTurnBump'] = newTurnOwner != actorSide;
 
     final ref = _col.doc(battleId);
     final batch = _fs.batch();
@@ -928,6 +944,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     patch['lastAction'] = lastAction;
     patch['seq'] = seq;
     patch['status'] = 'finished';
+    patch['pendingTurnBump'] = false;
     patch['result'] = {
       'winnerSide': winnerSide,
       'isHostVictory': winnerSide == 'host',
