@@ -110206,7 +110206,9 @@ case 9:s=11
 return A.l(e.$1$0(t.tr).bd(k),$async$pM)
 case 11:j=b
 e=j
-i=A.V(e==null?null:J.fx(e,"arenaId"))
+e=e==null?null:J.fx(e,"arena")
+t.F5.a(e)
+i=A.V(e==null?null:e.h(0,"id"))
 if(i!=null){h=A.em(J.jJ(l,new A.aNX(i)))
 if(h!=null)f.a=h}case 10:if(n.c==null){s=1
 break}n.M(new A.aNY(f,n,m,l))
