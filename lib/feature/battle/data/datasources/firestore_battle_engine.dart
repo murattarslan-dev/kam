@@ -934,7 +934,10 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     Map<String, dynamic> heroStat(HeroCardEntity h, String side, bool isBench, bool isWinnerSide) {
       final dmg = (dealt[h.id] ?? 0).round();
       final killBonus = killBonusFor(h.id);
-      final survivalBonus = (isWinnerSide && h.isAlive) ? h.health : 0;
+      // Forfeit ile biten savaşta hayatta kalma bonusu verilmez — aksi halde
+      // ikinci hesapla savaş açıp çekilerek hızlıca XP kasma açığı oluşur.
+      final survivalBonus =
+          (forfeitedSide == null && isWinnerSide && h.isAlive) ? h.health : 0;
       final ownKills = killsByHero[h.id] ?? const [];
       return {
         'instanceId': h.id,
