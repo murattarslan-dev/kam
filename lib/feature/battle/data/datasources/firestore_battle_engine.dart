@@ -434,7 +434,7 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
   }
 
   @override
-  Future<void> forfeitByTimeout({
+  Future<void> reportOpponentForfeit({
     required String battleId,
     required String mySide,
   }) async {
@@ -442,34 +442,70 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     if (data == null) return;
     if (data['status'] != 'in_progress') return;
     if (data['mode'] != 'pvp') return;
-    if (data['turnOwner'] != mySide) return;
+    final opp = mySide == 'host' ? 'guest' : 'host';
+    if (data['turnOwner'] != opp) return;
+    await _applyForfeit(
+      battleId: battleId,
+      data: data,
+      forfeitedSide: opp,
+      reason: 'timeout',
+    );
+  }
 
+  @override
+  Future<void> forfeitSelf({
+    required String battleId,
+    required String mySide,
+  }) async {
+    final data = await get(battleId);
+    if (data == null) return;
+    if (data['status'] != 'in_progress') return;
+    if (data['mode'] != 'pvp') return;
+    await _applyForfeit(
+      battleId: battleId,
+      data: data,
+      forfeitedSide: mySide,
+      reason: 'left',
+    );
+  }
+
+  /// Ortak forfeit yazımı. [reason] yalnız log mesajını biçimlendirir.
+  Future<void> _applyForfeit({
+    required String battleId,
+    required Map<String, dynamic> data,
+    required String forfeitedSide,
+    required String reason, // 'timeout' | 'left'
+  }) async {
     final allBuffs = await _repo.fetchAllBuffs();
-    final state = _buildActorState(data, mySide, allBuffs);
-    final winnerSide = mySide == 'host' ? 'guest' : 'host';
+    final state = _buildActorState(data, forfeitedSide, allBuffs);
+    final winnerSide = forfeitedSide == 'host' ? 'guest' : 'host';
     final seq = ((data['seq'] as num?)?.toInt() ?? 0) + 1;
-    final loserName = (mySide == 'host'
+    final loserName = (forfeitedSide == 'host'
             ? data['hostName']
             : data['guestName']) as String? ??
         'Oyuncu';
+    final message = reason == 'timeout'
+        ? '$loserName süreyi aştı, savaşı terk etti.'
+        : '$loserName savaşı terk etti.';
     final lastAction = <String, dynamic>{
       'seq': seq,
       'type': 'forfeit',
-      'actorSide': mySide,
-      'message': '$loserName süreyi aştı, savaşı terk etti.',
+      'actorSide': forfeitedSide,
+      'reason': reason,
+      'message': message,
     };
     final next = state.copyWith(
-      battleLogs: ['$loserName süreyi aştı, savaşı terk etti.', ...state.battleLogs],
+      battleLogs: [message, ...state.battleLogs],
     );
     await _writeFinished(
       battleId: battleId,
       priorDoc: data,
       finalState: next,
-      actorSide: mySide,
+      actorSide: forfeitedSide,
       winnerSide: winnerSide,
       lastAction: lastAction,
       seq: seq,
-      forfeitedSide: mySide,
+      forfeitedSide: forfeitedSide,
     );
   }
 

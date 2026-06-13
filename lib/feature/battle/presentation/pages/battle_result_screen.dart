@@ -100,6 +100,9 @@ class _BattleResultScreenState extends State<BattleResultScreen>
     final winnerSide = result['winnerSide'] as String?;
     final isVictory = winnerSide == widget.mySide;
     final accent = isVictory ? Colors.amber : Colors.redAccent;
+    final forfeitedSide = result['forfeitedSide'] as String?;
+    final opponentLeft =
+        forfeitedSide != null && forfeitedSide != widget.mySide;
 
     final hostName = (data['hostName'] as String?) ?? 'Ev sahibi';
     final guestName = (data['guestName'] as String?) ?? 'Konuk';
@@ -108,6 +111,8 @@ class _BattleResultScreenState extends State<BattleResultScreen>
     final arenaName = (arenaRaw is Map) ? (arenaRaw['name'] as String?) : null;
     final arenaThumb =
         (arenaRaw is Map) ? (arenaRaw['thumbnailUrl'] as String?) : null;
+    final arenaBg =
+        (arenaRaw is Map) ? (arenaRaw['backgroundUrl'] as String?) : null;
 
     final heroStats = ((result['heroStats'] as List?) ?? const [])
         .map((e) => Map<String, dynamic>.from(e as Map))
@@ -129,7 +134,9 @@ class _BattleResultScreenState extends State<BattleResultScreen>
       initialIndex: widget.mySide == 'guest' ? 1 : 0,
     );
 
-    return Column(
+    return _ArenaBackdrop(
+      backgroundUrl: arenaBg ?? '',
+      child: Column(
       children: [
         // Başlık
         Padding(
@@ -158,6 +165,37 @@ class _BattleResultScreenState extends State<BattleResultScreen>
                 "$turns tur",
                 style: const TextStyle(color: Colors.white54, fontSize: 12),
               ),
+              if (opponentLeft) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.redAccent.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.flag_outlined,
+                          size: 14, color: Colors.redAccent),
+                      SizedBox(width: 6),
+                      Text(
+                        "Rakip oyunu terk etti",
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (arenaName != null && arenaName.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -270,6 +308,7 @@ class _BattleResultScreenState extends State<BattleResultScreen>
           ),
         ),
       ],
+      ),
     );
   }
 
@@ -546,6 +585,32 @@ class _HeroRow extends StatelessWidget {
               style: const TextStyle(fontSize: 10, color: Colors.amber)),
         ],
       ),
+    );
+  }
+}
+
+/// Arena görselini koyu overlay altında arka plana koyar.
+/// Arena yoksa solid koyu renge düşer.
+class _ArenaBackdrop extends StatelessWidget {
+  final String backgroundUrl;
+  final Widget child;
+  const _ArenaBackdrop({required this.backgroundUrl, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (backgroundUrl.isEmpty) return child;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.network(
+          backgroundUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              Container(color: const Color(0xFF020617)),
+        ),
+        Container(color: Colors.black.withValues(alpha: 0.65)),
+        child,
+      ],
     );
   }
 }

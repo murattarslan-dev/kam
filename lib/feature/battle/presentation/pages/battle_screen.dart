@@ -1069,13 +1069,15 @@ class _TurnCountdownState extends State<_TurnCountdown> {
   Widget build(BuildContext context) {
     final dl = widget.deadline.value;
     if (dl == null) return const SizedBox.shrink();
+    // Sayaç yalnız rakibin hamlesini bekleyen tarafa gösterilir ve
+    // yalnızca son 30 saniyede görünür.
+    if (widget.isMyTurn) return const SizedBox.shrink();
     final remainingMs = dl.difference(DateTime.now()).inMilliseconds;
     final secs = remainingMs <= 0 ? 0 : (remainingMs / 1000).ceil();
+    if (secs > 30) return const SizedBox.shrink();
     final danger = secs <= 10;
-    final color = danger
-        ? Colors.redAccent
-        : (widget.isMyTurn ? Colors.tealAccent : Colors.amberAccent);
-    final label = widget.isMyTurn ? 'SENİN TURUN' : 'RAKİP';
+    final color = danger ? Colors.redAccent : Colors.amberAccent;
+    const label = 'RAKİP';
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),

@@ -44,8 +44,10 @@ class BattleCubit extends Cubit<BattleState> {
 
   /// PvP inaktivite sayacı: son aksiyondan 60 sn sonrasını gösterir. UI dinler.
   ///
-  /// Saat kayması (clock skew) sorununu önlemek için sunucudan/karşı taraftan
-  /// gelen mutlak bir deadline tutmayız; her client yeni bir aksiyon
+  /// Sayaç yalnız rakibinin hamlesini bekleyen (turnOwner != mySide) tarafta
+  /// işler — yani süre dolarsa rakip terk etmiş sayılır ve bunu rapor eden
+  /// bekleyen taraftır. Saat kayması (clock skew) sorununu önlemek için
+  /// sunucudan gelen mutlak bir deadline tutmayız; her client yeni bir aksiyon
   /// (seq değişimi) gözlemlediğinde kendi yerel saatiyle `now + 60s` yazar.
   final ValueNotifier<DateTime?> turnDeadline = ValueNotifier<DateTime?>(null);
   Timer? _forfeitTimer;
@@ -158,9 +160,19 @@ class BattleCubit extends Cubit<BattleState> {
       // Sadece kendi tarafımıza XP yansıt (idempotent, engine guard'lı).
       _engine.grantOwnSideXp(battleId: _battleId, mySide: _mySide);
       _stopHeartbeat();
+      _cancelForfeitTimer();
       _sub?.cancel();
       _sub = null;
-      emit(BattleFinished(battleId: _battleId, mySide: _mySide));
+      final result = data['result'];
+      final forfeitedSide =
+          (result is Map ? result['forfeitedSide'] : null) as String?;
+      final opponentForfeited =
+          forfeitedSide != null && forfeitedSide != _mySide;
+      emit(BattleFinished(
+        battleId: _battleId,
+        mySide: _mySide,
+        opponentForfeited: opponentForfeited,
+      ));
       return;
     }
     if (status != 'in_progress') {
@@ -351,12 +363,14 @@ class BattleCubit extends Cubit<BattleState> {
     }
 
     _cancelForfeitTimer();
-    if (turnOwner == _mySide) {
+    // Sayaç yalnız bekleyen tarafta işler. Süre dolarsa bekleyen, rakibinin
+    // terk ettiğini Firestore'a yazar (idempotent guard'lar engine içinde).
+    if (turnOwner != null && turnOwner != _mySide) {
       final remaining = turnDeadline.value!.difference(DateTime.now());
       final wait = remaining.isNegative ? Duration.zero : remaining;
       _forfeitTimer = Timer(wait, () {
         if (isClosed) return;
-        _engine.forfeitByTimeout(battleId: _battleId, mySide: _mySide);
+        _engine.reportOpponentForfeit(battleId: _battleId, mySide: _mySide);
       });
     }
   }
@@ -382,6 +396,11 @@ class BattleCubit extends Cubit<BattleState> {
 
   @override
   Future<void> close() {
+    // PvP savaşını ortasında kapatma — Firestore'a self-forfeit yaz.
+    // Rakip 'rakip oyunu terk etti' bildirimi ve XP raporunu görür.
+    if (_mode == 'pvp' && state is BattleInProgress && _battleId.isNotEmpty) {
+      _engine.forfeitSelf(battleId: _battleId, mySide: _mySide);
+    }
     _stopHeartbeat();
     _cancelForfeitTimer();
     turnDeadline.dispose();

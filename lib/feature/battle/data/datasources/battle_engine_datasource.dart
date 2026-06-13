@@ -83,11 +83,18 @@ abstract class BattleEngineDataSource {
 
   Future<void> abort(String battleId);
 
-  /// Tur süresi dolan tarafın savaşı terk etmiş sayılması. Yalnız PvP'de
-  /// anlamlı; status=='in_progress' ve turnOwner==mySide ise çalışır.
-  /// Karşı taraf kazanan olur ve XP'sini normal akıştan alır;
+  /// Karşı tarafın tur süresinin dolduğunu bekleyen taraf bildirir.
+  /// Yalnız PvP'de anlamlı; status=='in_progress' ve turnOwner==rakip ise çalışır.
+  /// Çağıran kazanan olur ve XP'sini normal akıştan alır;
   /// terk eden taraf hiç XP almaz (result.forfeitedSide ile guard'lanır).
-  Future<void> forfeitByTimeout({
+  Future<void> reportOpponentForfeit({
+    required String battleId,
+    required String mySide,
+  });
+
+  /// Oyuncu savaş ekranını mid-battle terk ettiğinde çağrılır.
+  /// Çağıranı terk eden olarak işaretler; rakip kazanan olur.
+  Future<void> forfeitSelf({
     required String battleId,
     required String mySide,
   });

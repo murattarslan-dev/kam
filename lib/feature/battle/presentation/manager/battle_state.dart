@@ -180,7 +180,14 @@ final class BattleInProgress extends BattleState {
 final class BattleFinished extends BattleState {
   final String battleId;
   final String mySide; // 'host' | 'guest'
-  const BattleFinished({required this.battleId, required this.mySide});
+  /// PvP'de rakip savaşı terk ettiyse (timeout veya ekranı kapatma) true.
+  /// UI bu bayrağı görürse yönlendirmeden önce "rakip oyunu terk etti" bilgisi gösterir.
+  final bool opponentForfeited;
+  const BattleFinished({
+    required this.battleId,
+    required this.mySide,
+    this.opponentForfeited = false,
+  });
 }
 
 final class BattleError extends BattleState {
