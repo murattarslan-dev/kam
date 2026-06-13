@@ -51,7 +51,7 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
       final mid = widget.inviteMatchId;
       if (mid != null) {
         final lobby = await sl<BattleEngineDataSource>().get(mid);
-        final hostArenaId = lobby?['arenaId'] as String?;
+        final hostArenaId = (lobby?['arena'] as Map?)?['id'] as String?;
         if (hostArenaId != null) {
           final match =
               arenas.where((a) => a.id == hostArenaId).firstOrNull;
