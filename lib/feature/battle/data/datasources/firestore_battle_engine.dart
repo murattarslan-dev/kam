@@ -31,10 +31,6 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
   // Aynı battle için aynı anda iki bot job'ı çalışmasın.
   final Set<String> _activeBotJobs = {};
 
-  static const int _turnTimeoutMs = 60 * 1000;
-  int _newDeadline() =>
-      DateTime.now().millisecondsSinceEpoch + _turnTimeoutMs;
-
   FirestoreBattleEngine({
     FirebaseFirestore? firestore,
     required BattleRepository repository,
@@ -135,7 +131,6 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'guestBench': BattleDocMapper.teamToDoc(guestBench),
       'lastAction': null,
       'result': null,
-      'turnDeadlineMs': null,
     });
     return doc.id;
   }
@@ -181,7 +176,6 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'guestBench': const <Map<String, dynamic>>[],
       'lastAction': null,
       'result': null,
-      'turnDeadlineMs': null,
     });
     return PvpLobby(battleId: doc.id, inviteCode: code);
   }
@@ -265,7 +259,6 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
       'activeBuffs':
           st.activeBuffs.map(BattleDocMapper.activeBuffToDoc).toList(),
       'battleLogs': st.battleLogs.take(60).toList(),
-      'turnDeadlineMs': _newDeadline(),
     });
   }
 
@@ -767,9 +760,6 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     patch['turnOwner'] = newTurnOwner;
     patch['lastAction'] = lastAction;
     patch['seq'] = seq;
-    if (priorDoc['mode'] == 'pvp') {
-      patch['turnDeadlineMs'] = _newDeadline();
-    }
 
     final ref = _col.doc(battleId);
     final batch = _fs.batch();
@@ -938,7 +928,6 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     patch['lastAction'] = lastAction;
     patch['seq'] = seq;
     patch['status'] = 'finished';
-    patch['turnDeadlineMs'] = null;
     patch['result'] = {
       'winnerSide': winnerSide,
       'isHostVictory': winnerSide == 'host',

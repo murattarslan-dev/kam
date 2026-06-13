@@ -42,9 +42,16 @@ class BattleCubit extends Cubit<BattleState> {
   StreamSubscription<Map<String, dynamic>?>? _sub;
   Timer? _heartbeat;
 
-  /// PvP tur süresi geri sayımı için bitiş zamanı. UI bunu dinler.
+  /// PvP inaktivite sayacı: son aksiyondan 60 sn sonrasını gösterir. UI dinler.
+  ///
+  /// Saat kayması (clock skew) sorununu önlemek için sunucudan/karşı taraftan
+  /// gelen mutlak bir deadline tutmayız; her client yeni bir aksiyon
+  /// (seq değişimi) gözlemlediğinde kendi yerel saatiyle `now + 60s` yazar.
   final ValueNotifier<DateTime?> turnDeadline = ValueNotifier<DateTime?>(null);
   Timer? _forfeitTimer;
+  int _lastSeenSeq = -1;
+  String? _lastSeenTurnOwner;
+  static const Duration _inactivityWindow = Duration(seconds: 60);
 
   // ── Açılış ─────────────────────────────────────────────────────────────
 
@@ -319,29 +326,33 @@ class BattleCubit extends Cubit<BattleState> {
 
   // ── Tur süresi (PvP forfeit sayacı) ────────────────────────────────────
 
-  /// Snapshot'tan turnDeadlineMs okur, ValueNotifier'ı günceller ve sıra
-  /// bizdeyse forfeit timer'ını yeniden kurar.
+  /// Inaktivite penceresini yerel saatle yönetir. seq veya turnOwner değişimi
+  /// "yeni aksiyon gözlemledim" sinyalidir → deadline = now + 60s.
+  /// İki cihazın saati farklı olsa bile, her iki taraf da kendi yerel saatini
+  /// kullandığı için aynı süreyi sayar.
   void _syncTurnDeadline(Map<String, dynamic> data) {
     final status = data['status'] as String?;
     final mode = data['mode'] as String?;
     if (mode != 'pvp' || status != 'in_progress') {
       _cancelForfeitTimer();
       if (turnDeadline.value != null) turnDeadline.value = null;
+      _lastSeenSeq = -1;
+      _lastSeenTurnOwner = null;
       return;
     }
-    final ms = (data['turnDeadlineMs'] as num?)?.toInt();
-    if (ms == null) {
-      _cancelForfeitTimer();
-      if (turnDeadline.value != null) turnDeadline.value = null;
-      return;
+    final seq = (data['seq'] as num?)?.toInt() ?? 0;
+    final turnOwner = data['turnOwner'] as String?;
+    final isFreshAction = seq != _lastSeenSeq || turnOwner != _lastSeenTurnOwner;
+    _lastSeenSeq = seq;
+    _lastSeenTurnOwner = turnOwner;
+
+    if (isFreshAction || turnDeadline.value == null) {
+      turnDeadline.value = DateTime.now().add(_inactivityWindow);
     }
-    final dl = DateTime.fromMillisecondsSinceEpoch(ms);
-    if (turnDeadline.value?.millisecondsSinceEpoch != ms) {
-      turnDeadline.value = dl;
-    }
+
     _cancelForfeitTimer();
-    if (data['turnOwner'] == _mySide) {
-      final remaining = dl.difference(DateTime.now());
+    if (turnOwner == _mySide) {
+      final remaining = turnDeadline.value!.difference(DateTime.now());
       final wait = remaining.isNegative ? Duration.zero : remaining;
       _forfeitTimer = Timer(wait, () {
         if (isClosed) return;
