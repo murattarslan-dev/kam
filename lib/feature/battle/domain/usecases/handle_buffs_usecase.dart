@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../entities/hero_entities.dart';
 import '../entities/buff_entities.dart';
 import '../../presentation/manager/battle_state.dart';
@@ -6,6 +8,19 @@ class SoakEntry {
   final String heroId;
   final int amount;
   const SoakEntry({required this.heroId, required this.amount});
+}
+
+class DamageRedirectResult {
+  final int remainingDamage;
+  final Map<String, int> perEnemyDamage;
+  final String? buffName;
+  const DamageRedirectResult({
+    required this.remainingDamage,
+    required this.perEnemyDamage,
+    required this.buffName,
+  });
+  bool get hasRedirect => perEnemyDamage.isNotEmpty;
+  int get totalRedirected => perEnemyDamage.values.fold(0, (s, v) => s + v);
 }
 
 class DamageSoakResult {
@@ -22,6 +37,13 @@ class HandleBuffsUseCase {
   BattleInProgress applyBuff(BattleInProgress currentState, String buffId, String targetHeroId) {
     final buff = currentState.allBuffs.where((b) => b.id == buffId).firstOrNull;
     if (buff == null) return currentState;
+
+    // Dispel anlık çalışır: ActiveBuff olarak depolanmaz, çağrı sırasında
+    // rakip takımdaki rastgele canlı kahramanın N aktif buff'ı silinir.
+    // targetHeroId burada "caster"dır (sahip); rakip takımı belirlemek için kullanılır.
+    if (buff.type == BuffType.dispel) {
+      return _applyDispel(currentState, buff, targetHeroId);
+    }
 
     // Eğer buff zaten aktifse (aynı kahramanda), süresini yenileyebiliriz veya stackleyebiliriz.
     // Şimdilik süresini yenileyelim.
@@ -66,19 +88,39 @@ class HandleBuffsUseCase {
           }
         }
       } else if (condition == BuffTriggerCondition.onTeammateHpBelowPercent && buff.triggerValue != null) {
-        // Buff sahibi: prerequisites'ı geçen kahraman. Takım arkadaşlarından
-        // biri eşiğin altındaysa sahibe uygula.
+        // Buff sahibi: prerequisites'ı geçen kahraman. Hedef ise targetType'a göre:
+        // - self → sahip (eski davranış)
+        // - singleTeammate → eşiği aşan yaralı takım arkadaşı
+        // - allTeammates → tüm canlı takım arkadaşları (sahip dahil)
         for (final owner in [...state.playerTeam, ...state.enemyTeam]) {
           if (!owner.isAlive) continue;
           final isPlayer = state.playerTeam.any((h) => h.id == owner.id);
           if (!_isPrerequisiteMet(state, owner, isPlayer, buff.targetFilter)) continue;
-          final teammates = (isPlayer ? state.playerTeam : state.enemyTeam)
-              .where((h) => h.id != owner.id && h.isAlive);
-          final triggered = teammates.any(
-            (h) => h.currentHealth / h.currentCp <= buff.triggerValue!,
-          );
-          if (triggered && !_isAlreadyActive(state, buff.id, owner.id)) {
-            state = applyBuff(state, buff.id, owner.id);
+          final team = isPlayer ? state.playerTeam : state.enemyTeam;
+          final wounded = team
+              .where((h) => h.id != owner.id && h.isAlive)
+              .where((h) => h.currentHealth / h.currentCp <= buff.triggerValue!)
+              .toList();
+          if (wounded.isEmpty) continue;
+
+          List<String> targetIds;
+          switch (buff.targetType) {
+            case BuffTargetType.self:
+              targetIds = [owner.id];
+              break;
+            case BuffTargetType.allTeammates:
+              targetIds = team.where((h) => h.isAlive).map((h) => h.id).toList();
+              break;
+            case BuffTargetType.singleTeammate:
+            default:
+              targetIds = wounded.map((h) => h.id).toList();
+              break;
+          }
+
+          for (final tid in targetIds) {
+            if (!_isAlreadyActive(state, buff.id, tid)) {
+              state = applyBuff(state, buff.id, tid);
+            }
           }
         }
       } else if (condition == BuffTriggerCondition.onBattleStart ||
@@ -218,6 +260,10 @@ class HandleBuffsUseCase {
         return team.any((h) => h.id != hero.id && h.isAlive && h.role.name == prereq.value);
       case BuffPrerequisiteType.heroIdIs:
         return hero.id == prereq.value;
+      case BuffPrerequisiteType.heroHpBelowPercent:
+        final pct = double.tryParse(prereq.value);
+        if (pct == null || hero.currentCp <= 0) return false;
+        return (hero.currentHealth / hero.currentCp) * 100 <= pct;
       case BuffPrerequisiteType.heroIdIn:
         // value: virgülle ayrılmış kahraman ID'leri. Bu prereq tek başına
         // OR semantiği taşır; birden fazla heroIdIn prereq'i AND'lenir.
@@ -489,6 +535,130 @@ class HandleBuffsUseCase {
       bonusMaxHealth: bonusMaxHp,
       health: clampedHealth,
     );
+  }
+
+  /// Caster'ın karşı takımındaki rastgele canlı bir kahramanın N (buff.value)
+  /// aktif buff'ını siler. ActiveBuff listesi kalıcı olarak güncellenir.
+  /// Anlık efekttir — kendisi ActiveBuff olarak eklenmez.
+  BattleInProgress _applyDispel(BattleInProgress state, BuffEntity buff, String casterId) {
+    final casterIsPlayer = state.playerTeam.any((h) => h.id == casterId);
+    final enemyTeam = casterIsPlayer ? state.enemyTeam : state.playerTeam;
+    final liveEnemies = enemyTeam.where((h) => h.isAlive).toList();
+    if (liveEnemies.isEmpty) return state;
+
+    final candidates = liveEnemies
+        .where((h) => state.activeBuffs.any((ab) => ab.targetHeroId == h.id))
+        .toList();
+    if (candidates.isEmpty) return state;
+
+    final victim = candidates[Random().nextInt(candidates.length)];
+    final removeCount = buff.value <= 0 ? 1 : buff.value;
+
+    // En sonda eklenen aktif buff'lar listede en sondadır — sondan başla.
+    final victimBuffs = <int>[];
+    for (int i = state.activeBuffs.length - 1; i >= 0 && victimBuffs.length < removeCount; i--) {
+      if (state.activeBuffs[i].targetHeroId == victim.id) {
+        victimBuffs.add(i);
+      }
+    }
+    if (victimBuffs.isEmpty) return state;
+
+    final removedSet = victimBuffs.toSet();
+    final updatedActive = <ActiveBuff>[];
+    final removedNames = <String>[];
+    for (int i = 0; i < state.activeBuffs.length; i++) {
+      if (removedSet.contains(i)) {
+        final ab = state.activeBuffs[i];
+        final b = state.allBuffs.where((x) => x.id == ab.buffId).firstOrNull;
+        if (b != null) removedNames.add(b.name);
+      } else {
+        updatedActive.add(state.activeBuffs[i]);
+      }
+    }
+
+    final log =
+        "${victim.name} üzerindeki ${removedNames.join(', ')} etkisi ${buff.name} ile temizlendi.";
+    final logs = List<String>.from(state.battleLogs)..insert(0, log);
+    final next = state.copyWith(activeBuffs: updatedActive, battleLogs: logs);
+    return recalculateAllHeroStats(next);
+  }
+
+  /// Hedef kahramanın aktif damageRedirect buff'ı varsa, gelen [damage]'in
+  /// `value%`'unu rakip takımdaki tüm canlı kahramanlara eşit böler.
+  /// Geri kalan kısım [remainingDamage] olarak normal akışa devam eder.
+  /// Hedefte aktif redirect buff'ı yoksa hasarı olduğu gibi döner.
+  DamageRedirectResult calculateDamageRedirect(
+    BattleInProgress state,
+    String targetHeroId,
+    int damage, {
+    required bool isPlayerTarget,
+  }) {
+    // Hedefin aktif damageRedirect buff'larından en yüksek yüzdeliyi seç.
+    int bestPercent = 0;
+    String? bestBuffName;
+    for (final ab in state.activeBuffs) {
+      if (ab.targetHeroId != targetHeroId) continue;
+      final b = state.allBuffs.where((x) => x.id == ab.buffId).firstOrNull;
+      if (b == null || b.type != BuffType.damageRedirect) continue;
+      if (b.value > bestPercent) {
+        bestPercent = b.value;
+        bestBuffName = b.name;
+      }
+    }
+    if (bestPercent <= 0 || bestBuffName == null) {
+      return DamageRedirectResult(
+          remainingDamage: damage, perEnemyDamage: const {}, buffName: null);
+    }
+
+    final enemyTeam = isPlayerTarget ? state.enemyTeam : state.playerTeam;
+    final liveEnemies = enemyTeam.where((h) => h.isAlive).toList();
+    if (liveEnemies.isEmpty) {
+      return DamageRedirectResult(
+          remainingDamage: damage, perEnemyDamage: const {}, buffName: null);
+    }
+
+    final clamped = bestPercent.clamp(0, 100);
+    final redirected = (damage * clamped / 100).round();
+    final remaining = damage - redirected;
+    if (redirected <= 0) {
+      return DamageRedirectResult(
+          remainingDamage: damage, perEnemyDamage: const {}, buffName: null);
+    }
+
+    final perEnemy = (redirected / liveEnemies.length).floor();
+    final remainder = redirected - perEnemy * liveEnemies.length;
+    final map = <String, int>{};
+    for (int i = 0; i < liveEnemies.length; i++) {
+      final extra = i < remainder ? 1 : 0;
+      final amount = perEnemy + extra;
+      if (amount > 0) map[liveEnemies[i].id] = amount;
+    }
+
+    return DamageRedirectResult(
+        remainingDamage: remaining, perEnemyDamage: map, buffName: bestBuffName);
+  }
+
+  /// Yansıtılan hasarı her bir düşmana doğrudan uygular (defense/element/arena bypass).
+  /// Ölüm tespit edilirse defeat trigger'ları motorda zincirlenir.
+  BattleInProgress applyRedirectDamage(BattleInProgress state, Map<String, int> perEnemyDamage) {
+    BattleInProgress current = state;
+    perEnemyDamage.forEach((heroId, amount) {
+      final isPlayer = current.playerTeam.any((h) => h.id == heroId);
+      if (isPlayer) {
+        final updated = current.playerTeam.map((h) {
+          if (h.id != heroId) return h;
+          return h.copyWith(health: (h.health - amount).clamp(0, h.currentCp));
+        }).toList();
+        current = current.copyWith(playerTeam: updated);
+      } else {
+        final updated = current.enemyTeam.map((h) {
+          if (h.id != heroId) return h;
+          return h.copyWith(health: (h.health - amount).clamp(0, h.currentCp));
+        }).toList();
+        current = current.copyWith(enemyTeam: updated);
+      }
+    });
+    return current;
   }
 
   /// Buff'ın `valueMode`'una göre bonus miktarını çözer.

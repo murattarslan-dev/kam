@@ -6,6 +6,8 @@ enum BuffType {
   hot, // Heal over time
   damageSoak, // Absorbs a percent of incoming damage for teammates
   arenaImmunity, // Sahibini arena element çarpanından muaf tutar
+  dispel, // Anlık: rakip takımdan rastgele bir kahramanın N buff'ını siler
+  damageRedirect, // Sahibinin aldığı hasarın value%'unu rakip takıma eşit yansıtır
 }
 
 enum StatType {
@@ -58,6 +60,7 @@ enum BuffPrerequisiteType {
   heroRoleIs,
   heroIdIs,           // kahramanın kendi ID'si eşleşmeli
   heroIdIn,           // kahramanın ID'si listede olmalı (virgülle ayrılmış değer)
+  heroHpBelowPercent, // kahramanın HP'si verilen yüzdenin altında olmalı (value: "5", "10" vb.)
   hasTeammateWithElement,
   hasTeammateWithRole,
   hasTeammateWithId,  // belirli ID'ye sahip kahraman takımda olmalı

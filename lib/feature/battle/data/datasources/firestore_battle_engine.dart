@@ -556,7 +556,14 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
         (target.currentDefensePower * arenaDefMult).round();
     final preSoakDamage = max(1, rawDamage - defenseReduction);
 
-    final soak = _buffs.calculateDamageSoak(state, target.id, preSoakDamage,
+    // Redirect önce: hedefte aktif damageRedirect buff'ı varsa, gelen hasarın
+    // value%'unu rakip takıma eşit böler. Kalan kısım soak ve normal akışa devam eder.
+    final redirect = _buffs.calculateDamageRedirect(
+        state, target.id, preSoakDamage,
+        isPlayerTarget: false);
+    final postRedirectDamage = redirect.remainingDamage;
+
+    final soak = _buffs.calculateDamageSoak(state, target.id, postRedirectDamage,
         isPlayerTarget: false);
     final finalDamage = soak.remainingDamage;
     final newHealth = (target.health - finalDamage).clamp(0, target.currentCp);
@@ -622,6 +629,62 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
 
     if (soak.hasSoak) {
       next = _buffs.applySoakDamage(next, soak.soakers);
+    }
+
+    if (redirect.hasRedirect) {
+      // Yansıtmadan önce hangileri canlıydı not edelim ki ölenleri tespit edebilelim.
+      final beforeAlive = <String, bool>{
+        for (final h in [...next.playerTeam, ...next.enemyTeam])
+          h.id: h.isAlive,
+      };
+      next = _buffs.applyRedirectDamage(next, redirect.perEnemyDamage);
+      final redirectLog =
+          "${target.name} aldığı ${redirect.totalRedirected} hasarı ${redirect.buffName} ile rakip takıma yansıttı.";
+      next = next.copyWith(battleLogs: [redirectLog, ...next.battleLogs]);
+
+      // Yansıyan ölümleri redirect sahibine (orijinal hedef = target) atfet:
+      // kills listesine ekle, redirect sahibine +2 kut ver.
+      final newKills = <Map<String, dynamic>>[];
+      int redirectKills = 0;
+      for (final hid in redirect.perEnemyDamage.keys) {
+        final all = [...next.playerTeam, ...next.enemyTeam];
+        final h = all.where((x) => x.id == hid).firstOrNull;
+        if (h != null && !h.isAlive && (beforeAlive[hid] ?? true)) {
+          newKills.add({
+            'killerInstanceId': target.id,
+            'killerName': target.name,
+            'victimInstanceId': h.id,
+            'victimName': h.name,
+            'victimAttack': h.attackPower,
+            'victimDefense': h.defensePower,
+            'turn': state.currentTurn,
+            'viaRedirect': true,
+          });
+          redirectKills++;
+          next = _buffs.checkDefeatTriggers(next, hid);
+        } else {
+          next = _buffs.checkDamageTakenTriggers(next, hid);
+        }
+      }
+      if (newKills.isNotEmpty) {
+        next = next.copyWith(kills: [...next.kills, ...newKills]);
+      }
+      if (redirectKills > 0) {
+        // target karşı takımda; updatedEnemy üzerinde değil "next" üzerinde
+        // güncel kopyayı bulup kut ekleyelim. target hangi takımdaysa orada güncelle.
+        final isTargetInPlayer = next.playerTeam.any((h) => h.id == target.id);
+        if (isTargetInPlayer) {
+          final pt = next.playerTeam
+              .map((h) => h.id == target.id ? h.copyWith(kut: h.kut + 2 * redirectKills) : h)
+              .toList();
+          next = next.copyWith(playerTeam: pt);
+        } else {
+          final et = next.enemyTeam
+              .map((h) => h.id == target.id ? h.copyWith(kut: h.kut + 2 * redirectKills) : h)
+              .toList();
+          next = next.copyWith(enemyTeam: et);
+        }
+      }
     }
 
     next = _buffs.checkDamageTakenTriggers(next, target.id);
