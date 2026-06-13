@@ -31596,11 +31596,12 @@ afR:function afR(a){this.a=a},
 afS:function afS(){},
 afU:function afU(a){this.a=a},
 afV:function afV(){},
-afT:function afT(a,b,c,d){var _=this
+afT:function afT(a,b,c,d,e){var _=this
 _.a=a
 _.b=b
 _.c=c
-_.d=d},
+_.d=d
+_.e=e},
 afW:function afW(a){this.a=a},
 afX:function afX(a){this.a=a},
 afY:function afY(){},
@@ -107939,7 +107940,7 @@ i=A.V(j.h(0,"killerInstanceId"))
 if(i==null)continue
 h=n.h(0,i)
 if(h==null){h=A.b([],l)
-n.m(0,i,h)}h.push(j)}g=new A.afT(a8,new A.afU(n),n,a9)
+n.m(0,i,h)}h.push(j)}g=new A.afT(a8,new A.afU(n),b4,n,a9)
 f=A.b([],l)
 for(m=a3.length,l=b8==="host",k=0;k<a3.length;a3.length===m||(0,A.B)(a3),++k)f.push(g.$4(a3[k],"host",!1,l))
 for(m=a5.length,k=0;k<a5.length;a5.length===m||(0,A.B)(a5),++k)f.push(g.$4(a5[k],"host",!0,l))
@@ -108202,7 +108203,7 @@ if(s==null)s=0
 return a+r+s},
 $S:68}
 A.afT.prototype={
-$4(a,b,c,d){var s=this,r=a.a,q=s.a.h(0,r),p=B.c.ac(q==null?0:q),o=s.b.$1(r),n=d&&a.w>0?a.w:0,m=s.c.h(0,r)
+$4(a,b,c,d){var s=this,r=a.a,q=s.a.h(0,r),p=B.c.ac(q==null?0:q),o=s.b.$1(r),n=s.c==null&&d&&a.w>0?a.w:0,m=s.d.h(0,r)
 if(m==null)m=B.fb
 q=A.x(t.N,t.z)
 q.m(0,"instanceId",r)
@@ -108212,7 +108213,7 @@ q.m(0,"side",b)
 q.m(0,"isBench",c)
 q.m(0,"isAlive",a.w>0)
 q.m(0,"damageDealt",p)
-r=s.d.h(0,r)
+r=s.e.h(0,r)
 q.m(0,"damageReceived",B.c.ac(r==null?0:r))
 q.m(0,"killBonusXp",o)
 q.m(0,"survivalBonusXp",n)
