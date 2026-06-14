@@ -136,6 +136,10 @@ class UseTozUseCase {
         return hero.role.name == p.value;
       case BuffPrerequisiteType.heroIdIs:
         return hero.id == p.value;
+      case BuffPrerequisiteType.heroHpBelowPercent:
+        final pct = double.tryParse(p.value);
+        if (pct == null || hero.currentCp <= 0) return false;
+        return (hero.health / hero.currentCp) * 100 <= pct;
       case BuffPrerequisiteType.heroIdIn:
         return p.value
             .split(',')

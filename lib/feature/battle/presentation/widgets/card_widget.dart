@@ -417,6 +417,10 @@ class KamCardWidget extends StatelessWidget {
         return (Icons.local_fire_department, Colors.redAccent);
       case BuffType.arenaImmunity:
         return (Icons.shield_moon, Colors.lightBlueAccent);
+      case BuffType.dispel:
+        return (Icons.cleaning_services, Colors.purpleAccent);
+      case BuffType.damageRedirect:
+        return (Icons.compare_arrows, Colors.amberAccent);
     }
   }
 

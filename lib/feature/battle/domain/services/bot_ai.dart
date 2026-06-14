@@ -330,6 +330,14 @@ class BotAi {
         // ortalama bir puan veriyoruz.
         if (targetsEnemies) return 0;
         return targetCount * turns * 5.0;
+      case BuffType.dispel:
+        // Rakipte aktif buff sayısına göre değerli; programatik hedef rastgele.
+        if (!targetsEnemies) return 0;
+        return magnitude * 25 + 20;
+      case BuffType.damageRedirect:
+        // Self/takıma uygulanır; yansıtma yüzdesi büyüdükçe değerli.
+        if (targetsEnemies) return 0;
+        return magnitude * turns * 0.8 + 25;
     }
   }
 
@@ -346,6 +354,10 @@ class BotAi {
           return hero.role.name == p.value;
         case BuffPrerequisiteType.heroIdIs:
           return hero.id == p.value;
+        case BuffPrerequisiteType.heroHpBelowPercent:
+          final pct = double.tryParse(p.value);
+          if (pct == null || hero.currentCp <= 0) return false;
+          return (hero.health / hero.currentCp) * 100 <= pct;
         case BuffPrerequisiteType.heroIdIn:
           return p.value
               .split(',')

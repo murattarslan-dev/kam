@@ -419,6 +419,8 @@ class HeroDetailDialog extends StatelessWidget {
       BuffType.statChange => buff.statType == StatType.defense
           ? (Icons.shield_outlined, Colors.blueAccent)
           : (Icons.flash_on, Colors.orangeAccent),
+      BuffType.dispel => (Icons.cleaning_services, Colors.purpleAccent),
+      BuffType.damageRedirect => (Icons.compare_arrows, Colors.amberAccent),
     };
   }
 
