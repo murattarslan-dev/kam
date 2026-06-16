@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/entities/buff_entities.dart';
+import 'element_icon.dart';
 
 /// Kahramanın tüm detaylarını gösteren tam ekran modal.
 /// Stats, açıklama, yetenekler (Töz), element matchup tablosu.
@@ -115,7 +116,7 @@ class HeroDetailDialog extends StatelessWidget {
             left: 12, right: 12, bottom: 10,
             child: Row(
               children: [
-                Text(_emoji(hero.element), style: const TextStyle(fontSize: 22)),
+                ElementIcon(element: hero.element, size: 24),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -395,9 +396,16 @@ class HeroDetailDialog extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: color.withValues(alpha: 0.4)),
                       ),
-                      child: Text(
-                        '${_emoji(e)} ${e.label} ×${m.toStringAsFixed(1)}',
-                        style: TextStyle(color: color, fontSize: 10),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ElementIcon(element: e, size: 12),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${e.label} ×${m.toStringAsFixed(1)}',
+                            style: TextStyle(color: color, fontSize: 10),
+                          ),
+                        ],
                       ),
                     );
                   }).toList(),
@@ -429,15 +437,6 @@ class HeroDetailDialog extends StatelessWidget {
         HeroRole.support => Icons.favorite,
         HeroRole.mage => Icons.auto_fix_high,
         HeroRole.tank => Icons.shield,
-      };
-
-  String _emoji(HeroElement element) => switch (element) {
-        HeroElement.fire => '🔥',
-        HeroElement.water => '💧',
-        HeroElement.wind => '🌬️',
-        HeroElement.steppe => '🌾',
-        HeroElement.forest => '🌲',
-        HeroElement.dark => '🌑',
       };
 
   LinearGradient _gradient(HeroElement element) => switch (element) {

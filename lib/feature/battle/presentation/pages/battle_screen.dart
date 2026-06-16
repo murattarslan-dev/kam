@@ -8,6 +8,7 @@ import '../manager/battle_state.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/floating_number.dart';
 import '../widgets/hero_detail_dialog.dart';
+import '../widgets/element_icon.dart';
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/entities/buff_entities.dart';
 import 'package:kam/core/util/responsive_helper.dart';
@@ -772,15 +773,6 @@ class _BattleViewState extends State<BattleView> {
     );
   }
 
-  String _elementEmoji(HeroElement element) => switch (element) {
-    HeroElement.fire => "🔥",
-    HeroElement.water => "💧",
-    HeroElement.wind => "🌬️",
-    HeroElement.steppe => "🌾",
-    HeroElement.forest => "🌲",
-    HeroElement.dark => "🌑",
-  };
-
   void _showSwapDialog(BuildContext context, BattleInProgress state) {
     final heroIndex = state.selectedHeroIndex;
     if (heroIndex == null) return;
@@ -813,7 +805,7 @@ class _BattleViewState extends State<BattleView> {
                 final dead = !bench.isAlive;
                 return ListTile(
                   enabled: !dead,
-                  leading: Text(_elementEmoji(bench.element), style: const TextStyle(fontSize: 22)),
+                  leading: ElementIcon(element: bench.element, size: 24),
                   title: Text(
                     dead ? "${bench.name} (ölü)" : bench.name,
                     style: TextStyle(color: dead ? Colors.white38 : Colors.white),

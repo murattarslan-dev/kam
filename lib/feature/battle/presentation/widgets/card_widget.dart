@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/hero_entities.dart';
 import '../../domain/entities/buff_entities.dart';
 import 'package:kam/core/util/responsive_helper.dart';
+import 'element_icon.dart';
 
 class KamCardWidget extends StatelessWidget {
   final HeroCardEntity card;
@@ -258,10 +259,7 @@ class KamCardWidget extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                _getElementEmoji(card.element),
-                style: const TextStyle(fontSize: 12),
-              ),
+              ElementIcon(element: card.element, size: 14),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
@@ -462,16 +460,6 @@ class KamCardWidget extends StatelessWidget {
     };
   }
 
-  String _getElementEmoji(HeroElement element) {
-    return switch (element) {
-      HeroElement.fire => "🔥",
-      HeroElement.water => "💧",
-      HeroElement.wind => "🌬️",
-      HeroElement.steppe => "🌾",
-      HeroElement.forest => "🌲",
-      HeroElement.dark => "🌑",
-    };
-  }
 }
 
 class BouncingArrow extends StatefulWidget {

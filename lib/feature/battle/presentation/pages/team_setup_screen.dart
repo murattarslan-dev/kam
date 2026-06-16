@@ -7,6 +7,7 @@ import '../../domain/repository/battle_repository.dart';
 import '../../domain/usecases/fetch_user_heroes_usecase.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/hero_detail_dialog.dart';
+import '../widgets/element_icon.dart';
 import 'package:kam/core/auth/auth_service.dart';
 import 'package:kam/core/di/injection.dart';
 import 'package:kam/core/util/responsive_helper.dart';
@@ -805,27 +806,25 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
             borderRadius: BorderRadius.circular(6),
             border: Border.all(color: color.withValues(alpha: 0.4)),
           ),
-          child: Text(
-            '${_elementEmoji(e.key)} ${e.value.toStringAsFixed(2)}x',
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElementIcon(element: e.key, size: 12),
+              const SizedBox(width: 4),
+              Text(
+                '${e.value.toStringAsFixed(2)}x',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
         );
       }).toList(),
     );
   }
-
-  String _elementEmoji(HeroElement element) => switch (element) {
-        HeroElement.fire => '🔥',
-        HeroElement.water => '💧',
-        HeroElement.wind => '🌬️',
-        HeroElement.steppe => '🌾',
-        HeroElement.forest => '🌲',
-        HeroElement.dark => '🌑',
-      };
 
   // ── AVAILABLE HEROES ──────────────────────────────────────────────────────
 
