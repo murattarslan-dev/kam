@@ -1,0 +1,21 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_2020_166)">
+<circle cx="256" cy="256" r="256" fill="url(#paint0_linear_2020_166)"/>
+<path d="M293.5 257.234V293.5H331V256.822L293.5 257.234Z" fill="black"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M106 218.5V256V293.5H143.5V331H181V368.5H218.5V406H256H293.5V368.5H331V331H368.5V293.5H406V256V218.5H368.5V181H331V143.5H293.5V106H256H218.5V143.5H181V181H143.5V218.5H106ZM256 218.5H293.5H331V256.822V293.5H293.5V331H256V293.5H218.5H181V258.467L218.5 258.056V218.5V181H256V218.5Z" fill="black"/>
+<path d="M218.5 293.5V258.056L181 258.467V293.5H218.5Z" fill="black"/>
+<path d="M218.5 218.5H256V181H218.5V218.5Z" fill="black"/>
+<path d="M293.5 218.5V257.234L331 256.822V218.5H293.5Z" fill="black"/>
+<path d="M293.5 293.5H256V331H293.5V293.5Z" fill="black"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_2020_166" x1="0" y1="0" x2="475.5" y2="512" gradientUnits="userSpaceOnUse">
+<stop stop-color="#5C2600"/>
+<stop offset="0.771381" stop-color="#FFA600"/>
+<stop offset="1" stop-color="#F37900"/>
+</linearGradient>
+<clipPath id="clip0_2020_166">
+<rect width="512" height="512" fill="white"/>
+</clipPath>
+</defs>
+</svg>
