@@ -61,16 +61,28 @@ class FirestoreBattleEngine implements BattleEngineDataSource {
     if (all.length < 5) {
       throw StateError('Düşman takımı için yeterli kahraman yok');
     }
-    final avgXp = playerTeam.isEmpty
-        ? 0
-        : (playerTeam.map((h) => h.xp).reduce((a, b) => a + b) /
-                playerTeam.length)
-            .round();
+    // Arenaya çıkan tüm 5 kahramanı (sahada 3 + yedek 2) ağırlıklı ortalamaya
+    // dahil et: en zayıf kahraman ortalamadan çıkarılır, en güçlü kahraman
+    // iki kez sayılır. Böylece güçlü oyunculara karşı bot daha sertleşirken
+    // zayıf takımları gereksiz ezmez.
+    final arenaHeroes = [...playerTeam, ...bench];
+    int botXp;
+    if (arenaHeroes.isEmpty) {
+      botXp = 0;
+    } else if (arenaHeroes.length == 1) {
+      botXp = arenaHeroes.first.xp;
+    } else {
+      final sortedXps = arenaHeroes.map((h) => h.xp).toList()..sort();
+      // En zayıfı (index 0) at, en güçlüyü (son) iki kez say.
+      final kept = sortedXps.sublist(1);
+      final weightedSum = kept.fold<int>(0, (a, b) => a + b) + kept.last;
+      botXp = (weightedSum / (kept.length + 1)).round();
+    }
     final pool = List<HeroCardEntity>.from(all)..shuffle(_rng);
     final enemies = pool.take(5).map((h) {
       return HeroCardEntity.fromMap(
         h.toMap()
-          ..['xp'] = avgXp
+          ..['xp'] = botXp
           ..['tozler'] = h.tozler,
       );
     }).toList();
